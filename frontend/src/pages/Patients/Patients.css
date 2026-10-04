@@ -1,0 +1,170 @@
+.patient-details-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f7f9fc;
+}
+
+
+/* Back Button */
+
+.back-button {
+  border: none;
+  background: white;
+  color: #2563eb;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 25px;
+}
+
+.back-button:hover {
+  background: #eff6ff;
+}
+
+
+/* Header */
+
+.patient-details-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: white;
+  padding: 25px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.patient-large-avatar {
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #2563eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.patient-details-header h1 {
+  margin: 0 0 5px;
+  font-size: 26px;
+}
+
+.patient-details-header p {
+  color: #64748b;
+}
+
+
+/* Details Card */
+
+.details-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 25px;
+  margin-bottom: 20px;
+}
+
+.details-card h2 {
+  margin-bottom: 20px;
+  font-size: 19px;
+}
+
+
+/* Details Grid */
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.details-grid div {
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 9px;
+}
+
+.details-grid span,
+.medical-info span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.details-grid strong {
+  color: #172033;
+}
+
+
+/* Medical Information */
+
+.medical-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.medical-info > div {
+  padding: 18px;
+  background: #f8fafc;
+  border-radius: 9px;
+}
+
+.medical-info p {
+  color: #172033;
+}
+
+
+/* Action */
+
+.patient-actions {
+  margin-top: 25px;
+}
+
+.handoff-button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.handoff-button:hover {
+  background: #1d4ed8;
+}
+
+
+/* Error */
+
+.patients-error {
+  color: #dc2626;
+  margin-bottom: 15px;
+}
+
+
+/* Responsive */
+
+@media (max-width: 768px) {
+
+  .patient-details-page {
+    padding: 20px;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .medical-info {
+    grid-template-columns: 1fr;
+  }
+
+}

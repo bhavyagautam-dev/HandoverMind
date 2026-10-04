@@ -1,0 +1,189 @@
+.handoff-history-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f7f9fc;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 25px;
+}
+
+.back-button {
+  border: none;
+  background: white;
+  color: #2563eb;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+
+.back-button:hover {
+  background: #eff6ff;
+}
+
+.history-header h1 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.history-header p {
+  color: #64748b;
+}
+
+.new-handoff-button {
+  border: none;
+  background: #2563eb;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.new-handoff-button:hover {
+  background: #1d4ed8;
+}
+
+.history-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.handoff-table {
+  width: 100%;
+}
+
+.table-header,
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1.3fr 1.2fr 1.2fr;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 22px;
+}
+
+.table-header {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-row {
+  min-height: 70px;
+  border-bottom: 1px solid #eef0f3;
+  color: #172033;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.patient-cell strong {
+  font-size: 15px;
+}
+
+.risk-badge,
+.status-badge {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Risk */
+
+.risk-badge.low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.risk-badge.medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.risk-badge.high {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.risk-badge.critical {
+  background: #7f1d1d;
+  color: white;
+}
+
+/* Status */
+
+.status-badge.draft {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.status-badge.submitted {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Empty */
+
+.empty-history {
+  text-align: center;
+  padding: 70px 20px;
+}
+
+.empty-history h2 {
+  margin-bottom: 8px;
+}
+
+.empty-history p {
+  color: #64748b;
+  margin-bottom: 20px;
+}
+
+.empty-history button {
+  border: none;
+  background: #2563eb;
+  color: white;
+  padding: 11px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.history-message {
+  padding: 40px;
+  text-align: center;
+  color: #64748b;
+}
+
+.history-error {
+  padding: 30px;
+  text-align: center;
+  color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .handoff-history-page {
+    padding: 20px;
+  }
+
+  .history-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+}

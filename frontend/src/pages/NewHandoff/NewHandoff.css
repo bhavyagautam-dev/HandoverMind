@@ -1,0 +1,141 @@
+.new-handoff-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f7f9fc;
+}
+
+.handoff-header {
+  margin-bottom: 25px;
+}
+
+.back-button {
+  border: none;
+  background: white;
+  color: #2563eb;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.back-button:hover {
+  background: #eff6ff;
+}
+
+.handoff-header h1 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.handoff-header p {
+  color: #64748b;
+}
+
+.handoff-card {
+  max-width: 900px;
+  background: white;
+  padding: 30px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #172033;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  outline: none;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #2563eb;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 220px;
+}
+
+.voice-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.voice-button {
+  border: 1px solid #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 11px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.voice-section span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.handoff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.draft-button,
+.generate-button {
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.draft-button {
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #172033;
+}
+
+.generate-button {
+  border: none;
+  background: #2563eb;
+  color: white;
+}
+
+.generate-button:hover {
+  background: #1d4ed8;
+}
+
+@media (max-width: 768px) {
+  .new-handoff-page {
+    padding: 20px;
+  }
+
+  .handoff-card {
+    padding: 20px;
+  }
+
+  .voice-section {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .handoff-actions {
+    flex-direction: column;
+  }
+}
