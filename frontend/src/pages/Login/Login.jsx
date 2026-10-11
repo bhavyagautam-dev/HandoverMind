@@ -34,7 +34,9 @@ function Login() {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.detail || "Invalid username or password");
+        setMessage(
+          data.detail || "Invalid username or password"
+        );
         return;
       }
 
@@ -42,17 +44,14 @@ function Login() {
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
 
-      // Save user + role
+      // Save user information and role
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      console.log("Login successful:", data);
-
-      // Go to dashboard
+      // Navigate to dashboard
       navigate("/dashboard");
-
     } catch (error) {
-      console.error(error);
-      setMessage("Backend server is not running.");
+      console.error("Login error:", error);
+      setMessage("Unable to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +60,6 @@ function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
-
         <h1>HandoverMind</h1>
 
         <p className="login-subtitle">
@@ -69,29 +67,38 @@ function Login() {
         </p>
 
         <form onSubmit={handleLogin}>
-
-          <label>Username</label>
+          <label htmlFor="username">Username</label>
 
           <input
+            id="username"
             type="text"
             placeholder="Enter username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setMessage("");
+            }}
+            autoComplete="username"
             required
           />
 
-          <label>Password</label>
+          <label htmlFor="password">Password</label>
 
           <input
+            id="password"
             type="password"
             placeholder="Enter password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setMessage("");
+            }}
+            autoComplete="current-password"
             required
           />
 
           {message && (
-            <p className="login-error">
+            <p className="login-error" role="alert">
               {message}
             </p>
           )}
@@ -99,9 +106,21 @@ function Login() {
           <button type="submit" disabled={loading}>
             {loading ? "Logging in..." : "Login"}
           </button>
-
         </form>
 
+        {/* Signup Link */}
+        <div className="login-footer">
+          <p>
+            New to HandoverMind?{" "}
+            <button
+              type="button"
+              className="signup-link"
+              onClick={() => navigate("/signup")}
+            >
+              Create an account
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
