@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
@@ -7,12 +8,12 @@ function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setMessage("");
 
@@ -24,10 +25,7 @@ function Login() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            username,
-            password,
-          }),
+          body: JSON.stringify({ username, password }),
         }
       );
 
@@ -38,71 +36,142 @@ function Login() {
         return;
       }
 
-      // Save JWT tokens
-      localStorage.setItem("access_token", data.access);
-      localStorage.setItem("refresh_token", data.refresh);
+      const storage = rememberMe ? localStorage : sessionStorage;
 
-      // Save user + role
-      localStorage.setItem("user", JSON.stringify(data.user));
+      storage.setItem("access_token", data.access);
+      storage.setItem("refresh_token", data.refresh);
 
-      console.log("Login successful:", data);
+      if (data.user) {
+        storage.setItem("user", JSON.stringify(data.user));
+      }
 
-      // Go to dashboard
       navigate("/dashboard");
-
     } catch (error) {
       console.error(error);
-      setMessage("Backend server is not running.");
+      setMessage("Unable to connect to the server.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
+    <div className="login-page">
+      {/* Left blue panel */}
+      <section className="login-brand">
 
-        <h1>HandoverMind</h1>
+        <div className="brand-logo">
+          <span className="brand-logo-icon">✚</span>
+          <span>HandoverMind</span>
+        </div>
 
-        <p className="login-subtitle">
-          Nurse Shift Handoff System
-        </p>
+        {/* Icon and text are stacked vertically */}
+        <div className="brand-illustration">
+          <div className="illustration-circle">
+            <span role="img" aria-label="Stethoscope">
+              🩺
+            </span>
+          </div>
 
-        <form onSubmit={handleLogin}>
+          <p>AI-Powered Nurse Handoff Assistant</p>
+        </div>
 
-          <label>Username</label>
+        <div className="brand-bottom">
+          <h2>
+            Smarter Handoffs.
+            <br />
+            Safer Workflows.
+          </h2>
 
-          <input
-            type="text"
-            placeholder="Enter username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
+          <p>
+            Transform voice and text handoffs into structured,
+            reviewable patient summaries.
+          </p>
+        </div>
 
-          <label>Password</label>
+      </section>
 
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+      {/* Right login panel */}
+      <section className="login-form-panel">
+        <div className="login-form-wrapper">
 
-          {message && (
-            <p className="login-error">
-              {message}
-            </p>
-          )}
+          <div className="login-heading">
+            <h1>Welcome Back</h1>
+            <p>Sign in to continue to HandoverMind</p>
+          </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </button>
+          <form onSubmit={handleLogin} className="login-form">
 
-        </form>
+            <div className="form-field">
+              <label htmlFor="username">UserName</label>
+              <input
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </div>
 
-      </div>
+            <div className="form-field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            <div className="login-options">
+              <label className="remember-option">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>Remember me</span>
+              </label>
+
+              <a href="/forgot-password" className="login-link">
+                Forgot Password?
+              </a>
+            </div>
+
+            {message && (
+              <p className="login-error" role="alert">
+                {message}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="login-submit"
+              disabled={loading}
+            >
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+
+          </form>
+
+          <div className="login-security">
+            <span>🔒</span>
+            <span>Secure access for authorized healthcare staff</span>
+          </div>
+
+          <p className="create-account">
+            Don&apos;t have an account?{" "}
+            <a href="/register" className="login-link">
+              Create Account
+            </a>
+          </p>
+
+        </div>
+      </section>
     </div>
   );
 }
