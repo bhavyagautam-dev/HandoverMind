@@ -43,7 +43,9 @@ function HandoffHistory() {
         }
 
         if (!Array.isArray(data)) {
-          setError("Unexpected handoff data received from the server.");
+          setError(
+            "Unexpected handoff data received from the server."
+          );
           return;
         }
 
@@ -61,9 +63,18 @@ function HandoffHistory() {
 
   const filteredHandoffs = useMemo(() => {
     return handoffs.filter((handoff) => {
-      const patientName = String(handoff.patient_name || "").toLowerCase();
-      const patientId = String(handoff.patient || "").toLowerCase();
-      const roomNumber = String(handoff.room_number || "").toLowerCase();
+      const patientName = String(
+        handoff.patient_name || ""
+      ).toLowerCase();
+
+      const patientId = String(
+        handoff.patient || ""
+      ).toLowerCase();
+
+      const roomNumber = String(
+        handoff.room_number || ""
+      ).toLowerCase();
+
       const query = search.trim().toLowerCase();
 
       const matchesSearch =
@@ -71,7 +82,9 @@ function HandoffHistory() {
         patientId.includes(query) ||
         roomNumber.includes(query);
 
-      const status = String(handoff.status || "Unknown").toLowerCase();
+      const status = String(
+        handoff.status || "Unknown"
+      ).toLowerCase();
 
       const matchesStatus =
         statusFilter === "All" ||
@@ -120,7 +133,9 @@ function HandoffHistory() {
       .toUpperCase();
 
   const getStatusClass = (status) => {
-    const normalized = String(status || "unknown").toLowerCase();
+    const normalized = String(
+      status || "unknown"
+    ).toLowerCase();
 
     if (normalized === "draft") return "draft";
     if (normalized === "submitted") return "submitted";
@@ -158,8 +173,12 @@ function HandoffHistory() {
 
       <header className="history-header">
         <div className="history-heading-content">
-          <span className="history-eyebrow">CARE DOCUMENTATION</span>
+          <span className="history-eyebrow">
+            CARE DOCUMENTATION
+          </span>
+
           <h1>Handoff History</h1>
+
           <p>
             Review and track your previous patient handoff records.
           </p>
@@ -178,6 +197,7 @@ function HandoffHistory() {
       <section className="history-stats">
         <div className="history-stat-card">
           <div className="history-stat-icon total-icon">H</div>
+
           <div>
             <span>Total Handoffs</span>
             <strong>{loading ? "—" : handoffs.length}</strong>
@@ -187,6 +207,7 @@ function HandoffHistory() {
 
         <div className="history-stat-card">
           <div className="history-stat-icon draft-icon">D</div>
+
           <div>
             <span>Draft Handoffs</span>
             <strong>{loading ? "—" : draftCount}</strong>
@@ -195,7 +216,10 @@ function HandoffHistory() {
         </div>
 
         <div className="history-stat-card">
-          <div className="history-stat-icon submitted-icon">✓</div>
+          <div className="history-stat-icon submitted-icon">
+            ✓
+          </div>
+
           <div>
             <span>Submitted Handoffs</span>
             <strong>{loading ? "—" : submittedCount}</strong>
@@ -212,7 +236,9 @@ function HandoffHistory() {
           </div>
 
           <span className="history-record-count">
-            {loading ? "Loading..." : `${filteredHandoffs.length} records`}
+            {loading
+              ? "Loading..."
+              : `${filteredHandoffs.length} records`}
           </span>
         </div>
 
@@ -246,7 +272,9 @@ function HandoffHistory() {
             <select
               id="status-filter"
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value)
+              }
             >
               <option value="All">All statuses</option>
               <option value="Draft">Draft</option>
@@ -284,7 +312,8 @@ function HandoffHistory() {
             <div className="history-state-icon">H</div>
             <h3>No handoffs yet</h3>
             <p>
-              Your saved handoff records will appear here once available.
+              Your saved handoff records will appear here once
+              available.
             </p>
 
             <button
@@ -304,7 +333,9 @@ function HandoffHistory() {
             <div className="history-state compact-state">
               <div className="history-state-icon">⌕</div>
               <h3>No matching records</h3>
-              <p>Try another search term or change the status filter.</p>
+              <p>
+                Try another search term or change the status filter.
+              </p>
 
               <button
                 type="button"
@@ -326,9 +357,10 @@ function HandoffHistory() {
               <div className="handoff-table">
                 <div className="table-header">
                   <span>Patient</span>
-                  <span>Date & Time</span>
+                  <span>Date &amp; Time</span>
                   <span>Risk Level</span>
                   <span>Status</span>
+                  <span>Action</span>
                 </div>
 
                 {filteredHandoffs.map((handoff) => {
@@ -339,12 +371,15 @@ function HandoffHistory() {
                     <div className="table-row" key={handoff.id}>
                       <div className="patient-cell">
                         <div className="history-patient-avatar">
-                          {getInitials(handoff.patient_name || "Patient")}
+                          {getInitials(
+                            handoff.patient_name || "Patient"
+                          )}
                         </div>
 
                         <div className="history-patient-info">
                           <strong>
-                            {handoff.patient_name || "Unnamed Patient"}
+                            {handoff.patient_name ||
+                              "Unnamed Patient"}
                           </strong>
 
                           <small>
@@ -354,12 +389,16 @@ function HandoffHistory() {
                       </div>
 
                       <div className="history-date">
-                        <strong>{formatDate(handoff.created_at)}</strong>
+                        <strong>
+                          {formatDate(handoff.created_at)}
+                        </strong>
                       </div>
 
                       <div>
                         <span
-                          className={`risk-badge ${getRiskClass(risk)}`}
+                          className={`risk-badge ${getRiskClass(
+                            risk
+                          )}`}
                         >
                           <span className="badge-dot"></span>
                           {risk || "Not assessed"}
@@ -368,11 +407,27 @@ function HandoffHistory() {
 
                       <div>
                         <span
-                          className={`status-badge ${getStatusClass(status)}`}
+                          className={`status-badge ${getStatusClass(
+                            status
+                          )}`}
                         >
                           <span className="badge-dot"></span>
                           {status}
                         </span>
+                      </div>
+
+                      <div className="history-actions">
+                        <button
+                          type="button"
+                          className="view-details-button"
+                          onClick={() =>
+                            navigate(
+                              `/handoff-details/${handoff.id}`
+                            )
+                          }
+                        >
+                          View Details
+                        </button>
                       </div>
                     </div>
                   );

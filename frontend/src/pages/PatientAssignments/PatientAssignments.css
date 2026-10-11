@@ -1,0 +1,204 @@
+.patient-assignments {
+  min-height: 100vh;
+  padding: 36px;
+  background: #f4f7fb;
+  color: #172033;
+  font-family: Arial, sans-serif;
+}
+
+.patient-assignments * {
+  box-sizing: border-box;
+}
+
+.pa-header,
+.pa-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.pa-header {
+  margin-bottom: 30px;
+}
+
+.pa-eyebrow {
+  margin: 0 0 8px;
+  color: #3867d6;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.pa-header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.pa-subtitle {
+  margin-top: 10px;
+  color: #718096;
+}
+
+.pa-back-button,
+.pa-refresh-button,
+.pa-save-button {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pa-back-button,
+.pa-refresh-button {
+  background: #e9eef8;
+  color: #253858;
+}
+
+.pa-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.pa-summary-card {
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+}
+
+.pa-summary-card span {
+  display: block;
+  margin-bottom: 12px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.pa-summary-card strong {
+  font-size: 28px;
+  color: #172033;
+}
+
+.pa-table-card {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+}
+
+.pa-section-heading {
+  margin-bottom: 22px;
+}
+
+.pa-section-heading h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.pa-section-heading p {
+  margin: 0;
+  color: #718096;
+  font-size: 14px;
+}
+
+.pa-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.pa-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.pa-table th,
+.pa-table td {
+  padding: 15px;
+  border-bottom: 1px solid #edf0f5;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.pa-table th {
+  background: #f8faff;
+  color: #667085;
+  font-weight: 600;
+}
+
+.pa-table tbody tr:hover {
+  background: #fafcff;
+}
+
+.pa-table select {
+  width: 100%;
+  min-width: 160px;
+  padding: 10px;
+  border: 1px solid #d6dce8;
+  border-radius: 8px;
+  background: white;
+  color: #253858;
+}
+
+.pa-save-button {
+  background: #315bd6;
+  color: white;
+}
+
+.pa-save-button:hover:not(:disabled) {
+  background: #2448b4;
+}
+
+.pa-save-button:disabled,
+.pa-refresh-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pa-success,
+.pa-error {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.pa-success {
+  background: #e9f8ef;
+  color: #207044;
+}
+
+.pa-error {
+  background: #fff0f0;
+  color: #a52222;
+}
+
+.pa-empty {
+  padding: 30px 10px;
+  color: #718096;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .patient-assignments {
+    padding: 20px 14px;
+  }
+
+  .pa-header h1 {
+    font-size: 25px;
+  }
+
+  .pa-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .pa-table-card {
+    padding: 16px;
+  }
+}

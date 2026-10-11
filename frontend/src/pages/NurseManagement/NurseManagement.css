@@ -1,0 +1,208 @@
+
+* {
+  box-sizing: border-box;
+}
+
+.nurse-management {
+  min-height: 100vh;
+  padding: 36px;
+  background: #f4f7fb;
+  color: #172033;
+  font-family: Arial, sans-serif;
+}
+
+.nm-header,
+.nm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.nm-header {
+  margin-bottom: 32px;
+}
+
+.nm-eyebrow {
+  margin: 0 0 8px;
+  color: #3867d6;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.nm-header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.nm-subtitle {
+  margin-top: 10px;
+  color: #718096;
+}
+
+.nm-toolbar {
+  margin-bottom: 20px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+}
+
+.nm-toolbar h2,
+.nm-form h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.nm-toolbar p {
+  margin: 0;
+  color: #718096;
+  font-size: 14px;
+}
+
+.nm-primary-button,
+.nm-back-button,
+.nm-deactivate-button {
+  padding: 11px 17px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nm-primary-button {
+  background: #315bd6;
+  color: white;
+}
+
+.nm-primary-button:hover {
+  background: #2448b4;
+}
+
+.nm-back-button {
+  background: #e9eef8;
+  color: #253858;
+}
+
+.nm-deactivate-button {
+  background: #fff0f0;
+  color: #c53030;
+}
+
+.nm-deactivate-button:hover {
+  background: #ffe0e0;
+}
+
+.nm-form,
+.nm-table-card {
+  margin-bottom: 24px;
+  padding: 24px;
+  background: white;
+  border: 1px solid #e5eaf2;
+  border-radius: 14px;
+}
+
+.nm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 22px 0;
+}
+
+.nm-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nm-form-grid input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d6dce8;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+}
+
+.nm-form-grid input:focus {
+  border-color: #315bd6;
+  box-shadow: 0 0 0 3px #315bd61a;
+}
+
+.nm-success,
+.nm-error {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.nm-success {
+  background: #e9f8ef;
+  color: #207044;
+}
+
+.nm-error {
+  background: #fff0f0;
+  color: #a52222;
+}
+
+.nm-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.nm-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.nm-table th,
+.nm-table td {
+  padding: 16px;
+  border-bottom: 1px solid #edf0f5;
+  font-size: 14px;
+}
+
+.nm-table th {
+  background: #f8faff;
+  color: #667085;
+  font-weight: 600;
+}
+
+.nm-table tbody tr:hover {
+  background: #fafcff;
+}
+
+.nm-empty {
+  padding: 30px 10px;
+  color: #718096;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .nurse-management {
+    padding: 20px 14px;
+  }
+
+  .nm-header h1 {
+    font-size: 25px;
+  }
+
+  .nm-form,
+  .nm-table-card {
+    padding: 16px;
+  }
+
+  .nm-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

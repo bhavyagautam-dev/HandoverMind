@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
@@ -14,8 +13,8 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setMessage("");
+    setLoading(true);
 
     try {
       const response = await fetch(
@@ -25,18 +24,51 @@ function Login() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({
+            username,
+            password,
+          }),
         }
       );
 
-      const data = await response.json();
+
+    const responseText = await response.text();
+
+    console.log("HTTP Status:", response.status);
+    console.log("Response:", responseText);
+
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      setMessage(
+        "Backend returned HTML instead of JSON. Check the browser console and Django terminal."
+      );
+      return;
+    }
 
       if (!response.ok) {
-        setMessage(data.detail || "Invalid username or password");
+        setMessage(
+          data.detail || "Invalid username or password."
+        );
         return;
       }
 
-      const storage = rememberMe ? localStorage : sessionStorage;
+      // Clear old session data
+      [
+        "access_token",
+        "refresh_token",
+        "user",
+      ].forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+
+      // Save credentials according to Remember Me
+      const storage = rememberMe
+        ? localStorage
+        : sessionStorage;
 
       storage.setItem("access_token", data.access);
       storage.setItem("refresh_token", data.refresh);
@@ -45,26 +77,39 @@ function Login() {
         storage.setItem("user", JSON.stringify(data.user));
       }
 
-      navigate("/dashboard");
+      // Redirect according to the user's role
+      const role = data.user?.role;
+
+      if (role === "Manager" || role === "Admin") {
+        navigate("/manager", { replace: true });
+      } else if (role === "Nurse") {
+        navigate("/dashboard", { replace: true });
+      } else if (role === "Non-medical Staff") {
+        navigate("/staff", { replace: true });
+      } else {
+        setMessage(
+          "Your account role is not recognized. Please contact the administrator."
+        );
+      }
     } catch (error) {
-      console.error(error);
-      setMessage("Unable to connect to the server.");
+      console.error("Login error:", error);
+      setMessage(
+        "Unable to connect to the server. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      {/* Left blue panel */}
+    <main className="login-page">
+      {/* LEFT BRANDING PANEL */}
       <section className="login-brand">
-
-        <div className="brand-logo">
-          <span className="brand-logo-icon">✚</span>
+        <Link to="/" className="brand-logo">
+          <span className="brand-logo-icon">+</span>
           <span>HandoverMind</span>
-        </div>
+        </Link>
 
-        {/* Icon and text are stacked vertically */}
         <div className="brand-illustration">
           <div className="illustration-circle">
             <span role="img" aria-label="Stethoscope">
@@ -87,26 +132,24 @@ function Login() {
             reviewable patient summaries.
           </p>
         </div>
-
       </section>
 
-      {/* Right login panel */}
+      {/* RIGHT LOGIN PANEL */}
       <section className="login-form-panel">
         <div className="login-form-wrapper">
-
           <div className="login-heading">
             <h1>Welcome Back</h1>
             <p>Sign in to continue to HandoverMind</p>
           </div>
 
-          <form onSubmit={handleLogin} className="login-form">
-
+          <form className="login-form" onSubmit={handleLogin}>
             <div className="form-field">
-              <label htmlFor="username">UserName</label>
+              <label htmlFor="username">Email Address</label>
+
               <input
                 id="username"
                 type="text"
-                placeholder="Enter your username"
+                placeholder="Enter your email or username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -116,6 +159,7 @@ function Login() {
 
             <div className="form-field">
               <label htmlFor="password">Password</label>
+
               <input
                 id="password"
                 type="password"
@@ -132,14 +176,25 @@ function Login() {
                 <input
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={(e) =>
+                    setRememberMe(e.target.checked)
+                  }
                 />
                 <span>Remember me</span>
               </label>
 
-              <a href="/forgot-password" className="login-link">
+              <Link
+                to="/forgot-password"
+                className="login-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMessage(
+                    "Please contact your administrator to reset your password."
+                  );
+                }}
+              >
                 Forgot Password?
-              </a>
+              </Link>
             </div>
 
             {message && (
@@ -153,26 +208,26 @@ function Login() {
               className="login-submit"
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "Signing In..." : "Sign In"}
             </button>
-
           </form>
 
           <div className="login-security">
-            <span>🔒</span>
-            <span>Secure access for authorized healthcare staff</span>
+            <span aria-hidden="true">🔒</span>
+            <span>
+              Secure access for authorized healthcare staff
+            </span>
           </div>
 
           <p className="create-account">
-            Don&apos;t have an account?{" "}
-            <a href="/register" className="login-link">
+            Don't have an account?{" "}
+            <Link to="/signup" className="login-link">
               Create Account
-            </a>
+            </Link>
           </p>
-
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 

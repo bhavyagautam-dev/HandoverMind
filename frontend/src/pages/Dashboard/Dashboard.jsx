@@ -5,7 +5,11 @@ import "./Dashboard.css";
 function Dashboard() {
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(
+  localStorage.getItem("user") ||
+  sessionStorage.getItem("user") ||
+  "null"
+  );
 
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
@@ -77,13 +81,16 @@ function Dashboard() {
   // =========================
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
 
-    navigate("/");
+  sessionStorage.removeItem("access_token");
+  sessionStorage.removeItem("refresh_token");
+  sessionStorage.removeItem("user");
+
+  navigate("/");
   };
-
 
   if (!user) {
     return null;

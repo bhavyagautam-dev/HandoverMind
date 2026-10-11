@@ -1,7 +1,4 @@
-
-/* Reset */
-.login-page,
-.login-page * {
+* {
   box-sizing: border-box;
 }
 
@@ -13,20 +10,19 @@
   color: #172033;
 }
 
-/* LEFT PANEL */
+/* LEFT BRANDING PANEL */
 .login-brand {
   width: 50%;
   min-height: 100vh;
-  padding: 55px 4.5%;
+  padding: 55px 5.4%;
   position: relative;
   overflow: hidden;
 
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  align-items: stretch;
 
-  color: #ffffff !important;
+  color: #ffffff;
   background: linear-gradient(145deg, #2865e8, #203c91);
 }
 
@@ -58,14 +54,15 @@
 .brand-logo {
   position: relative;
   z-index: 1;
-
   display: flex;
   align-items: center;
   gap: 14px;
+  width: fit-content;
 
+  color: #ffffff;
   font-size: 28px;
   font-weight: 700;
-  color: #ffffff !important;
+  text-decoration: none;
 }
 
 .brand-logo-icon {
@@ -80,27 +77,28 @@
 
   color: #2865e8;
   background: #ffffff;
-  font-size: 30px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-/* ICON + TEXT: IMPORTANT FIX */
-.login-brand .brand-illustration {
+/* CENTER ILLUSTRATION */
+.brand-illustration {
   position: relative;
   z-index: 1;
-
   width: 100%;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 18px;
+
   margin: 35px 0;
   text-align: center;
 }
 
-/* Circular icon */
-.login-brand .illustration-circle {
+.illustration-circle {
   width: 188px;
   height: 188px;
   flex: 0 0 188px;
@@ -113,54 +111,48 @@
   background: rgba(255, 255, 255, 0.13);
 }
 
-.login-brand .illustration-circle span {
+.illustration-circle span {
   display: block;
   font-size: 76px;
   line-height: 1;
 }
 
-/* Text directly below the icon */
-.login-brand .brand-illustration p {
-  display: block !important;
-  position: static !important;
-
+.brand-illustration p {
   width: 100%;
-  margin: 0 !important;
-  padding: 0;
-
-  color: #ffffff !important;
+  margin: 0;
+  color: #ffffff;
   font-size: 17px;
   font-weight: 400;
   line-height: 1.6;
-  text-align: center !important;
+  text-align: center;
 }
 
-/* BOTTOM CONTENT */
-.login-brand .brand-bottom {
+/* BOTTOM BRAND CONTENT */
+.brand-bottom {
   position: relative;
   z-index: 1;
   width: 100%;
   max-width: 470px;
 }
 
-.login-brand .brand-bottom h2 {
+.brand-bottom h2 {
   margin: 0 0 24px;
-  color: #ffffff !important;
+  color: #ffffff;
   font-size: 36px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.6px;
 }
 
-.login-brand .brand-bottom p {
+.brand-bottom p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.7;
 }
 
-/* RIGHT PANEL */
+/* RIGHT LOGIN PANEL */
 .login-form-panel {
   width: 50%;
   min-height: 100vh;
@@ -180,7 +172,7 @@
 
 /* HEADING */
 .login-heading {
-  margin-bottom: 40px;
+  margin-bottom: 42px;
 }
 
 .login-heading h1 {
@@ -194,7 +186,7 @@
 .login-heading p {
   margin: 0;
   color: #788395;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -243,12 +235,13 @@
   box-shadow: 0 0 0 3px rgba(40, 101, 232, 0.12);
 }
 
-/* OPTIONS */
+/* REMEMBER ME + FORGOT PASSWORD */
 .login-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .remember-option {
@@ -262,8 +255,8 @@
 }
 
 .remember-option input {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: #2865e8;
   cursor: pointer;
@@ -280,7 +273,7 @@
   text-decoration: underline;
 }
 
-/* BUTTON */
+/* SIGN IN BUTTON */
 .login-submit {
   width: 100%;
   min-height: 54px;
@@ -308,10 +301,11 @@
   cursor: not-allowed;
 }
 
-/* ERROR */
+/* ERROR MESSAGE */
 .login-error {
   margin: -5px 0 0;
   padding: 11px 13px;
+
   border: 1px solid #fecaca;
   border-radius: 8px;
 
@@ -320,9 +314,10 @@
 
   font-size: 14px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-/* SECURITY */
+/* SECURITY MESSAGE */
 .login-security {
   display: flex;
   align-items: center;
@@ -330,8 +325,8 @@
   gap: 8px;
 
   margin-top: 32px;
-  color: #9aa3b2;
-  font-size: 12px;
+  color: #788395;
+  font-size: 13px;
   line-height: 1.6;
   text-align: center;
 }
@@ -363,21 +358,21 @@
     font-size: 24px;
   }
 
-  .login-brand .brand-bottom h2 {
+  .brand-bottom h2 {
     font-size: 31px;
   }
 
-  .login-brand .illustration-circle {
+  .illustration-circle {
     width: 145px;
     height: 145px;
     flex-basis: 145px;
   }
 
-  .login-brand .illustration-circle span {
+  .illustration-circle span {
     font-size: 62px;
   }
 
-  .login-brand .brand-illustration p {
+  .brand-illustration p {
     font-size: 15px;
   }
 }
@@ -402,34 +397,34 @@
   .brand-logo-icon {
     width: 42px;
     height: 42px;
-    font-size: 26px;
+    font-size: 30px;
   }
 
-  .login-brand .brand-illustration {
+  .brand-illustration {
     margin: 0;
     gap: 14px;
   }
 
-  .login-brand .illustration-circle {
+  .illustration-circle {
     width: 90px;
     height: 90px;
     flex-basis: 90px;
   }
 
-  .login-brand .illustration-circle span {
+  .illustration-circle span {
     font-size: 44px;
   }
 
-  .login-brand .brand-illustration p {
+  .brand-illustration p {
     font-size: 14px;
   }
 
-  .login-brand .brand-bottom h2 {
+  .brand-bottom h2 {
     font-size: 27px;
     margin-bottom: 12px;
   }
 
-  .login-brand .brand-bottom p {
+  .brand-bottom p {
     font-size: 14px;
   }
 
@@ -455,7 +450,11 @@
 /* SMALL PHONES */
 @media (max-width: 380px) {
   .login-brand {
-    padding: 25px 18px;
+    padding: 24px 18px;
+  }
+
+  .brand-logo {
+    font-size: 20px;
   }
 
   .login-form-panel {
@@ -463,19 +462,15 @@
   }
 
   .login-options {
-    flex-wrap: wrap;
     align-items: flex-start;
   }
 
-  .login-brand .brand-bottom h2 {
-    font-size: 25px;
+  .login-link,
+  .remember-option {
+    font-size: 12px;
   }
 
-  .login-heading h1 {
-    font-size: 27px;
-  }
-
-  .form-field input {
-    font-size: 14px;
+  .login-security {
+    font-size: 12px;
   }
 }
