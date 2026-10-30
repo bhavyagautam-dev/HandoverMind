@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
@@ -29,9 +28,30 @@ function Dashboard() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(getStoredUser);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
   const [patientsError, setPatientsError] = useState("");
+
+  // Close the mobile menu with the Escape key
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleKey = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [menuOpen]);
+
+  // Stop the page behind the menu from scrolling while it is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!user) {
@@ -151,14 +171,33 @@ function Dashboard() {
 
   return (
     <div className="dashboard-layout">
-      <aside className="sidebar">
+      <div
+        className={`sidebar-overlay ${menuOpen ? "open" : ""}`}
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside id="dashboard-sidebar" className={`sidebar ${menuOpen ? "open" : ""}`}>
+        <button
+          className="sidebar-close"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close menu"
+        >
+          ✕
+        </button>
+
         <div className="brand">
           <div className="brand-icon">+</div>
           <h2>HandoverMind</h2>
         </div>
 
         <nav className="sidebar-menu">
-          <button className="menu-item active">Dashboard</button>
+          <button
+            className="menu-item active"
+            onClick={() => setMenuOpen(false)}
+          >
+            Dashboard
+          </button>
 
           <button
             className="menu-item"
@@ -200,9 +239,23 @@ function Dashboard() {
 
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <div>
-            <h1>Good Morning, {user.username} 👋</h1>
-            <p>Here's your handoff overview for today.</p>
+          <div className="dashboard-header-left">
+            <button
+              className="hamburger-button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              aria-controls="dashboard-sidebar"
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+
+            <div>
+              <h1>Good Morning, {user.username} 👋</h1>
+              <p>Here's your handoff overview for today.</p>
+            </div>
           </div>
 
           <div className="user-info">
