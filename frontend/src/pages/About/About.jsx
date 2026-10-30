@@ -46,6 +46,36 @@ const workflow = [
   },
 ];
 
+const developers = [
+  {
+    initials: "B",
+    name: "Bhavya",
+    role: "UI/UX & Frontend Developer",
+    description:
+      "Designs the look and feel of HandoverMind and builds the interface so every screen stays clear and easy to use.",
+    skills: ["UI/UX Design", "Frontend"],
+    tone: "blue",
+  },
+  {
+    initials: "DK",
+    name: "Dhruv Kaushik",
+    role: "Backend & AI Integration",
+    description:
+      "Builds the backend logic and connects the AI features that turn handoff information into structured summaries.",
+    skills: ["Backend", "AI Integration"],
+    tone: "purple",
+  },
+  {
+    initials: "KS",
+    name: "Kushagra Sharma",
+    role: "API, Deployment & Azure",
+    description:
+      "Connects the APIs, manages deployment and handles the Azure setup so the platform runs reliably.",
+    skills: ["API Connection", "Deployment", "Azure"],
+    tone: "green",
+  },
+];
+
 function About() {
   return (
     <main className="hm-about">
@@ -58,8 +88,9 @@ function About() {
         </Link>
 
         <nav className="hm-about-nav" aria-label="Main navigation">
-          <Link to="/home">Home</Link>
+          <Link to="/">Home</Link>
           <a href="#our-approach">Our approach</a>
+          <a href="#our-team">Our team</a>
           <a href="#our-vision">Our vision</a>
         </nav>
 
@@ -288,6 +319,45 @@ function About() {
         </div>
       </section>
 
+      <section className="hm-about-devs hm-about-section" id="our-team">
+        <div className="hm-about-section-heading">
+          <span className="hm-about-section-kicker">OUR TEAM</span>
+          <h2>
+            Meet the
+            <br />
+            <span>developers.</span>
+          </h2>
+          <p>
+            The people who designed, built and deployed HandoverMind, from the
+            first screen to the cloud.
+          </p>
+        </div>
+
+        <div className="hm-about-dev-grid">
+          {developers.map((dev, index) => (
+            <article
+              className="hm-about-dev-card"
+              key={dev.name}
+              style={{ "--about-index": index }}
+            >
+              <div className={`hm-about-dev-avatar hm-about-dev-avatar-${dev.tone}`}>
+                {dev.initials}
+              </div>
+
+              <h3>{dev.name}</h3>
+              <span className="hm-about-dev-role">{dev.role}</span>
+              <p>{dev.description}</p>
+
+              <div className="hm-about-dev-tags">
+                {dev.skills.map((skill) => (
+                  <span key={skill}>{skill}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="hm-about-vision hm-about-section" id="our-vision">
         <div className="hm-about-vision-decoration hm-about-vision-decoration-one" />
         <div className="hm-about-vision-decoration hm-about-vision-decoration-two" />
@@ -330,6 +400,7 @@ function About() {
         <div className="hm-about-footer-links">
           <Link to="/home">Home</Link>
           <a href="#our-mission">Mission</a>
+          <a href="#our-team">Team</a>
           <Link to="/">Log in</Link>
         </div>
 

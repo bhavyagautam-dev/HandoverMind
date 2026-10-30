@@ -53,7 +53,7 @@ function Home() {
   return (
     <main className="hm-home">
       <header className="hm-navbar">
-        <Link to="/home" className="hm-brand" aria-label="HandoverMind home">
+        <Link to="/" className="hm-brand" aria-label="HandoverMind home">
           <span className="hm-brand-icon">✚</span>
           <span>
             Handover<span>Mind</span>
@@ -67,7 +67,7 @@ function Home() {
         </nav>
 
         <div className="hm-nav-actions">
-          <Link to="/" className="hm-login-link">
+          <Link to="/login" className="hm-login-link">
             Log in
           </Link>
           <Link to="/signup" className="hm-button hm-button-small">
