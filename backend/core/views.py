@@ -13,6 +13,35 @@ from .models import Patient, Handoff
 from .serializers import PatientSerializer, HandoffSerializer, NurseCreateSerializer,StaffCreateSerializer
 from .permissions import IsAdmin, IsNurse, IsManager, IsNonMedicalStaff
 
+from .ai_service import generate_sbar_summary
+
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import Count, Q
+from rest_framework import status
+from rest_framework.response import Response
+
+from .models import Patient, Handoff
+
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+
+
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+
+from .serializers import (
+    PatientSerializer,
+    HandoffSerializer,
+    NurseCreateSerializer,
+    StaffCreateSerializer,
+)
+
+User = get_user_model()
+
+User = get_user_model()
 
 
 # JWT LOGIN
@@ -441,8 +470,36 @@ class PatientDetailView(APIView):
         )
 
 
+#Change The Nurse
+
+def select_next_nurse(current_nurse, patient):
+    """
+    Select a different active Nurse with the lowest active-patient
+    workload. Return None if no eligible nurse is available.
+    """
+    candidates = (
+        User.objects.filter(
+            is_active=True,
+            groups__name__iexact="Nurse",
+        )
+        .exclude(pk=current_nurse.pk)
+        .annotate(
+            active_patient_count=Count(
+                "assigned_patients",
+                filter=Q(assigned_patients__status="Active"),
+                distinct=True,
+            )
+        )
+        .order_by("active_patient_count", "id")
+        .distinct()
+    )
+
+    return candidates.first()
+
 
 # HANDOFF LIST AND CREATE
+
+
 
 
 class HandoffListCreateView(APIView):
@@ -451,16 +508,18 @@ class HandoffListCreateView(APIView):
     def get(self, request):
         if not request.user.groups.filter(name="Nurse").exists():
             return Response(
-                {"detail": "Only nurses can access this handoff history."},
+                {"detail": "Only nurses can access handoff history."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Preserve outgoing nurse's own history.
         handoffs = Handoff.objects.filter(
             nurse=request.user
+        ).select_related(
+            "patient", "nurse", "incoming_nurse"
         ).order_by("-created_at")
 
-        serializer = HandoffSerializer(handoffs, many=True)
-        return Response(serializer.data)
+        return Response(HandoffSerializer(handoffs, many=True).data)
 
     def post(self, request):
         if not request.user.groups.filter(name="Nurse").exists():
@@ -471,32 +530,199 @@ class HandoffListCreateView(APIView):
 
         serializer = HandoffSerializer(data=request.data)
 
-        if serializer.is_valid():
-            patient = serializer.validated_data["patient"]
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            if patient.status != "Active":
+        patient = serializer.validated_data["patient"]
+
+        with transaction.atomic():
+            locked_patient = Patient.objects.select_for_update().get(
+                pk=patient.pk
+            )
+
+            if locked_patient.status != "Active":
                 return Response(
                     {"detail": "Discharged patients cannot receive new handoffs."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if patient.assigned_nurse != request.user:
+            if locked_patient.assigned_nurse_id != request.user.id:
                 return Response(
                     {"detail": "You do not have access to this patient."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            handoff = serializer.save(nurse=request.user)
-
-            return Response(
-                HandoffSerializer(handoff).data,
-                status=status.HTTP_201_CREATED,
+            handoff = serializer.save(
+                nurse=request.user,
+                patient=locked_patient,
             )
 
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+            reassignment = {
+                "reassigned": False,
+                "incoming_nurse_id": None,
+                "incoming_nurse_username": None,
+                "message": "Draft saved. Patient assignment unchanged.",
+            }
+
+            if handoff.status == "Submitted":
+                next_nurse = select_next_nurse(
+                    request.user,
+                    locked_patient,
+                )
+
+                if next_nurse is not None:
+                    locked_patient.assigned_nurse = next_nurse
+                    locked_patient.save(update_fields=["assigned_nurse"])
+
+                    handoff.incoming_nurse = next_nurse
+                    handoff.save(update_fields=["incoming_nurse", "updated_at"])
+
+                    reassignment = {
+                        "reassigned": True,
+                        "incoming_nurse_id": next_nurse.id,
+                        "incoming_nurse_username": next_nurse.username,
+                        "message": "Patient reassigned and handoff sent successfully.",
+                    }
+                else:
+                    reassignment["message"] = (
+                        "Handoff submitted, but no eligible incoming nurse "
+                        "was found. Patient assignment remains unchanged."
+                    )
+
+            response_data = HandoffSerializer(handoff).data
+            response_data["reassignment"] = reassignment
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class IncomingHandoffInboxView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.groups.filter(name="Nurse").exists():
+            return Response(
+                {"detail": "Only nurses can access the incoming handoff inbox."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        handoffs = Handoff.objects.filter(
+            incoming_nurse=request.user,
+            status__in=["Submitted", "Acknowledged"],
+        ).select_related(
+            "patient", "nurse", "incoming_nurse"
+        ).order_by("-created_at")
+
+        return Response(HandoffSerializer(handoffs, many=True).data)
+
+
+
+class AcknowledgeHandoffView(APIView):
+    permission_classes = [IsAuthenticated, IsNurse]
+
+    def post(self, request, handoff_id):
+        from django.utils import timezone
+        from django.db import transaction
+
+        with transaction.atomic():
+            try:
+                handoff = Handoff.objects.select_for_update().get(
+                    id=handoff_id,
+                    incoming_nurse=request.user,
+                )
+            except Handoff.DoesNotExist:
+                return Response(
+                    {"detail": "Incoming handoff not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if handoff.status == "Acknowledged":
+                return Response(HandoffSerializer(handoff).data)
+
+            if handoff.status != "Submitted":
+                return Response(
+                    {"detail": "Only submitted handoffs can be acknowledged."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            handoff.status = "Acknowledged"
+            handoff.acknowledged_at = timezone.now()
+            handoff.save(
+                update_fields=[
+                    "status",
+                    "acknowledged_at",
+                    "updated_at",
+                ]
+            )
+
+        return Response(HandoffSerializer(handoff).data)
+
+    
+#Generate SBAR View
+
+class GenerateSBARView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Only nurses can generate handoff summaries
+        if not request.user.groups.filter(name="Nurse").exists():
+            return Response(
+                {"detail": "Only nurses can generate handoff summaries."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        patient_id = request.data.get("patient")
+        notes = request.data.get("input_text", "").strip()
+
+        if not patient_id or not notes:
+            return Response(
+                {"detail": "Patient and handoff notes are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(notes) > 10000:
+            return Response(
+                {"detail": "Notes must be 10,000 characters or fewer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except (Patient.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {"detail": "Patient not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if patient.status != "Active":
+            return Response(
+                {"detail": "Discharged patients cannot receive new handoffs."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if patient.assigned_nurse_id != request.user.id:
+            return Response(
+                {"detail": "You do not have access to this patient."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            result = generate_sbar_summary(notes)
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            import logging
+            logging.exception("SBAR generation failed")
+
+            return Response(
+                {
+                    "detail": f"SBAR generation failed: {str(e)}"
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+    )
+
 
 
 
@@ -514,19 +740,26 @@ class HandoffDetailView(APIView):
             )
 
         try:
-            handoff = Handoff.objects.get(
-                id=handoff_id,
-                nurse=request.user,
-            )
+            handoff = Handoff.objects.select_related(
+                "patient", "nurse", "incoming_nurse"
+            ).get(pk=handoff_id)
         except Handoff.DoesNotExist:
             return Response(
                 {"detail": "Handoff not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = HandoffSerializer(handoff)
-        return Response(serializer.data)
+        # Only the outgoing or assigned incoming nurse can view it.
+        if (
+            handoff.nurse_id != request.user.id
+            and handoff.incoming_nurse_id != request.user.id
+        ):
+            return Response(
+                {"detail": "You do not have access to this handoff."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        return Response(HandoffSerializer(handoff).data)
 
 
 

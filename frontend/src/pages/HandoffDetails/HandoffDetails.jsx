@@ -13,7 +13,12 @@ function HandoffDetails() {
   useEffect(() => {
     const fetchHandoff = async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        const token = 
+        localStorage.getItem("access") ||
+        sessionStorage.getItem("access") ||
+        localStorage.getItem("access_token") ||
+        sessionStorage.getItem("access_token");
+
 
         if (!token) {
           navigate("/");

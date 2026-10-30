@@ -1,6 +1,18 @@
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./NewHandoff.css";
+
+const API_BASE = "http://127.0.0.1:8000/api";
+
+function getAccessToken() {
+  return (
+    localStorage.getItem("access") ||
+    sessionStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    sessionStorage.getItem("access_token")
+  );
+}
 
 function NewHandoff() {
   const navigate = useNavigate();
@@ -14,83 +26,122 @@ function NewHandoff() {
   );
 
   const [handoffText, setHandoffText] = useState("");
+  const [reviewedSummary, setReviewedSummary] = useState("");
+  const [reviewedRisk, setReviewedRisk] = useState("Low");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const [sbarResult, setSbarResult] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  // Load assigned active patients
   useEffect(() => {
-    const fetchPatients = async () => {
+    let cancelled = false;
+
+    async function fetchPatients() {
       setLoading(true);
       setError("");
 
       try {
-        const token = localStorage.getItem("access_token");
+        const token = getAccessToken();
 
         if (!token) {
-          navigate("/");
+          setError("Login session missing. Please log in again.");
           return;
         }
 
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/patients/",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch(`${API_BASE}/patients/`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         const data = await response.json();
 
         if (!response.ok) {
           setError(
-            data.detail || "Unable to load patients. Please try again."
+            response.status === 401
+              ? "Your session has expired. Please log in again."
+              : data.detail || "Unable to load patients."
           );
           return;
         }
 
-        if (!Array.isArray(data)) {
+        const patientList = Array.isArray(data)
+          ? data
+          : Array.isArray(data.results)
+            ? data.results
+            : null;
+
+        if (!patientList) {
           setError("Unexpected patient data received from the server.");
           return;
         }
 
-        setPatients(data);
+        if (cancelled) return;
+
+        const activePatients = patientList.filter(
+          (patient) => patient.status === "Active"
+        );
+
+        setPatients(activePatients);
 
         if (initialPatientId != null) {
-          const matchingPatient = data.find(
+          const matchingPatient = activePatients.find(
             (patient) => String(patient.id) === String(initialPatientId)
           );
 
-          setSelectedPatient(
-            matchingPatient ? String(matchingPatient.id) : ""
-          );
+          setSelectedPatient(matchingPatient ? String(matchingPatient.id) : "");
+
+          if (!matchingPatient) {
+            setMessage(
+              "The selected patient is not in your assigned active patient list."
+            );
+          }
         }
       } catch (err) {
-        console.error("Error loading patients:", err);
-        setError("Unable to connect to backend.");
+        console.error("Loading patients failed:", err);
+
+        if (!cancelled) {
+          setError("Unable to connect to backend.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    };
+    }
 
     fetchPatients();
-  }, [navigate, initialPatientId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPatientId]);
 
   const currentPatient = patients.find(
     (patient) => String(patient.id) === selectedPatient
   );
 
-  const handleSaveDraft = async (event) => {
-    event.preventDefault();
-
+  const clearMessages = () => {
     setError("");
     setMessage("");
+  };
 
-    if (!selectedPatient) {
-      setError("Please select a patient.");
+  // Generate AI SBAR draft
+  const handlePrepareHandoff = async () => {
+    clearMessages();
+    setSbarResult(null);
+    setReviewedSummary("");
+    setReviewedRisk("Low");
+
+    if (!selectedPatient || !currentPatient) {
+      setError("Please select a valid assigned active patient.");
       return;
     }
 
@@ -99,18 +150,23 @@ function NewHandoff() {
       return;
     }
 
-    setSaving(true);
+    if (handoffText.trim().length > 10000) {
+      setError("Handoff notes must be 10,000 characters or fewer.");
+      return;
+    }
+
+    const token = getAccessToken();
+
+    if (!token) {
+      setError("Login session missing. Please log in again.");
+      return;
+    }
+
+    setGenerating(true);
 
     try {
-      const token = localStorage.getItem("access_token");
-
-      if (!token) {
-        navigate("/");
-        return;
-      }
-
       const response = await fetch(
-        "http://127.0.0.1:8000/api/handoffs/",
+        `${API_BASE}/handoffs/generate-sbar/`,
         {
           method: "POST",
           headers: {
@@ -120,7 +176,6 @@ function NewHandoff() {
           body: JSON.stringify({
             patient: Number(selectedPatient),
             input_text: handoffText.trim(),
-            status: "Draft",
           }),
         }
       );
@@ -128,48 +183,153 @@ function NewHandoff() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Save draft failed:", data);
-
         setError(
-          data.detail || "Unable to save handoff. Please try again."
+          data.detail || "Unable to generate SBAR summary. Please try again."
         );
         return;
       }
 
-      setMessage("Handoff saved as draft successfully.");
-      setHandoffText("");
+      setSbarResult(data);
+
+      const formattedSummary =
+        data.sbar_summary ||
+        [
+          `Situation: ${data.situation || "Not provided"}`,
+          `Background: ${data.background || "Not provided"}`,
+          `Assessment: ${data.assessment || "Not provided"}`,
+          `Recommendation: ${data.recommendation || "Not provided"}`,
+        ].join("\n\n");
+
+      setReviewedSummary(formattedSummary);
+
+      setReviewedRisk(
+        ["Low", "Medium", "High", "Critical"].includes(data.risk_level)
+          ? data.risk_level
+          : "Low"
+      );
+
+      setMessage(
+        "SBAR draft generated. Review and correct it before saving."
+      );
     } catch (err) {
-      console.error("Error saving handoff:", err);
-      setError("Unable to connect to backend.");
+      console.error("SBAR generation failed:", err);
+      setError("Unable to connect to backend. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Save as Draft or submit handoff
+  const handleConfirmAndSave = async (targetStatus = "Draft") => {
+    clearMessages();
+
+    if (!["Draft", "Submitted"].includes(targetStatus)) {
+      setError("Invalid handoff status.");
+      return;
+    }
+
+    if (!selectedPatient || !currentPatient) {
+      setError("Please select a valid assigned active patient.");
+      return;
+    }
+
+    if (!handoffText.trim()) {
+      setError("Original handoff notes are required.");
+      return;
+    }
+
+    if (!sbarResult || !reviewedSummary.trim()) {
+      setError("Generate and review the SBAR before saving.");
+      return;
+    }
+
+    if (!["Low", "Medium", "High", "Critical"].includes(reviewedRisk)) {
+      setError("Please select a valid risk level.");
+      return;
+    }
+
+    const token = getAccessToken();
+
+    if (!token) {
+      setError("Login session missing. Please log in again.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/handoffs/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patient: Number(selectedPatient),
+          input_text: handoffText.trim(),
+          sbar_summary: reviewedSummary.trim(),
+          risk_level: reviewedRisk,
+          status: targetStatus,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Saving handoff failed:", data);
+
+        setError(
+          data.detail ||
+            JSON.stringify(data) ||
+            "Unable to save handoff. Please try again."
+        );
+        return;
+      }
+
+      if (targetStatus === "Draft") {
+        setMessage("Draft saved. Patient assignment should remain unchanged.");
+      } else if (data.reassignment?.reassigned) {
+        setMessage(
+          `Handoff submitted. Patient reassigned to ${
+            data.reassignment.incoming_nurse_username || "the incoming nurse"
+          }.`
+        );
+      } else {
+        setMessage(
+          data.reassignment?.message ||
+            "Handoff submitted, but reassignment was not confirmed."
+        );
+      }
+
+      setHandoffText("");
+      setSbarResult(null);
+      setReviewedSummary("");
+      setReviewedRisk("Low");
+    } catch (err) {
+      console.error("Saving handoff failed:", err);
+      setError("Unable to connect to backend. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePrepareHandoff = () => {
-    setError("");
-    setMessage("");
-
-    if (!selectedPatient) {
-      setError("Please select a patient.");
-      return;
-    }
-
-    if (!handoffText.trim()) {
-      setError("Please enter handoff notes.");
-      return;
-    }
-
-    setMessage(
-      "Your notes are ready. AI generation will be enabled after the AI API is connected."
-    );
-  };
-
   const handleClearNotes = () => {
     setHandoffText("");
-    setError("");
-    setMessage("");
+    setSbarResult(null);
+    setReviewedSummary("");
+    setReviewedRisk("Low");
+    clearMessages();
   };
+
+  const getInitials = (name = "") =>
+    name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
 
   return (
     <main className="new-handoff-page">
@@ -204,20 +364,23 @@ function NewHandoff() {
       </header>
 
       <div className="handoff-workspace">
-        <form className="handoff-card" onSubmit={handleSaveDraft}>
+        <form
+          className="handoff-card"
+          onSubmit={(event) => event.preventDefault()}
+        >
           <div className="handoff-card-header">
             <div>
               <h2>Handoff Information</h2>
-              <p>Complete the details below before saving your handoff.</p>
+              <p>Enter the notes, generate SBAR, and review before saving.</p>
             </div>
 
             <span className="draft-status-badge">
-              <span></span>
+              <span />
               Draft mode
             </span>
           </div>
 
-          <div className="handoff-divider"></div>
+          <div className="handoff-divider" />
 
           <div className="form-group">
             <label htmlFor="patient-select">
@@ -229,10 +392,12 @@ function NewHandoff() {
               value={selectedPatient}
               onChange={(event) => {
                 setSelectedPatient(event.target.value);
-                setError("");
-                setMessage("");
+                setSbarResult(null);
+                setReviewedSummary("");
+                setReviewedRisk("Low");
+                clearMessages();
               }}
-              disabled={loading || saving}
+              disabled={loading || saving || generating}
               required
             >
               <option value="">
@@ -252,7 +417,7 @@ function NewHandoff() {
 
             {!loading && !error && patients.length === 0 && (
               <div className="handoff-inline-info">
-                No patients are currently available.
+                No assigned active patients are currently available.
               </div>
             )}
           </div>
@@ -260,14 +425,7 @@ function NewHandoff() {
           {currentPatient && (
             <section className="selected-patient-card">
               <div className="selected-patient-avatar">
-                {String(currentPatient.name || "P")
-                  .trim()
-                  .split(/\s+/)
-                  .filter(Boolean)
-                  .map((word) => word[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
+                {getInitials(currentPatient.name)}
               </div>
 
               <div className="selected-patient-details">
@@ -302,20 +460,21 @@ function NewHandoff() {
               value={handoffText}
               onChange={(event) => {
                 setHandoffText(event.target.value);
-                setError("");
-                setMessage("");
+                setSbarResult(null);
+                setReviewedSummary("");
+                setReviewedRisk("Low");
+                clearMessages();
               }}
-              placeholder={
-                "Document the patient's current condition, symptoms, vital signs, medications, pending tasks, recent events and nursing observations..."
-              }
+              placeholder="Enter factual nursing observations, available vital signs, ongoing care and pending tasks..."
               rows={10}
+              maxLength={10000}
               required
-              disabled={saving}
+              disabled={saving || generating}
             />
 
             <small>
-              Include relevant clinical observations, ongoing treatment and
-              pending care tasks. Follow your hospital's documentation policy.
+              Include relevant observations, ongoing treatment and pending care
+              tasks. Do not include information that is not verified.
             </small>
           </div>
 
@@ -327,7 +486,7 @@ function NewHandoff() {
             <div className="voice-description">
               <strong>Voice-assisted documentation</strong>
               <span>
-                Dictation can help make note-taking more convenient.
+                Voice input is planned but has not been implemented yet.
               </span>
             </div>
 
@@ -355,31 +514,106 @@ function NewHandoff() {
             </div>
           )}
 
+          {sbarResult && (
+            <section className="sbar-result" aria-live="polite">
+              <h2>AI-Generated SBAR Draft</h2>
+
+              <p className="sbar-review-notice">
+                AI-generated draft only. Verify every detail against the
+                clinical record and follow your facility's procedures.
+              </p>
+
+              <div className="sbar-section">
+                <label htmlFor="reviewed-sbar">
+                  Review and edit SBAR summary
+                </label>
+                <textarea
+                  id="reviewed-sbar"
+                  value={reviewedSummary}
+                  onChange={(event) => setReviewedSummary(event.target.value)}
+                  rows={10}
+                  required
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="sbar-section">
+                <label htmlFor="reviewed-risk">
+                  AI-suggested risk level — verify before saving
+                </label>
+
+                <select
+                  id="reviewed-risk"
+                  value={reviewedRisk}
+                  onChange={(event) => setReviewedRisk(event.target.value)}
+                  disabled={saving}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+
+              <div className="handoff-actions">
+                <button
+                  type="button"
+                  className="save-draft-button"
+                  onClick={() => handleConfirmAndSave("Draft")}
+                  disabled={
+                    saving ||
+                    generating ||
+                    !reviewedSummary.trim() ||
+                    !handoffText.trim()
+                  }
+                >
+                  {saving ? "Saving..." : "Save Draft"}
+                </button>
+
+                <button
+                  type="button"
+                  className="generate-button"
+                  onClick={() => handleConfirmAndSave("Submitted")}
+                  disabled={
+                    saving ||
+                    generating ||
+                    !reviewedSummary.trim() ||
+                    !handoffText.trim()
+                  }
+                >
+                  {saving ? "Submitting..." : "Submit Handoff"}
+                </button>
+              </div>
+            </section>
+          )}
+
           <div className="handoff-actions">
             <button
               type="button"
               className="draft-button"
               onClick={handleClearNotes}
-              disabled={saving || (!handoffText && !error && !message)}
+              disabled={
+                saving ||
+                generating ||
+                (!handoffText && !error && !message && !sbarResult)
+              }
             >
               Clear Notes
-            </button>
-
-            <button
-              type="submit"
-              className="save-draft-button"
-              disabled={saving || loading}
-            >
-              {saving ? "Saving..." : "Save Draft"}
             </button>
 
             <button
               type="button"
               className="generate-button"
               onClick={handlePrepareHandoff}
-              disabled={saving || loading}
+              disabled={
+                saving ||
+                generating ||
+                loading ||
+                patients.length === 0 ||
+                !handoffText.trim()
+              }
             >
-              Prepare Handoff
+              {generating ? "Generating SBAR..." : "Prepare Handoff"}
               <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -391,42 +625,27 @@ function NewHandoff() {
           </div>
 
           <h2>Handoff checklist</h2>
-
           <p>
             Keep your handoff notes clear, factual and focused on continuity
             of care.
           </p>
 
-          <div className="guidance-divider"></div>
+          <div className="guidance-divider" />
 
           <ul className="guidance-list">
-            <li>
-              <span>✓</span>
-              Current patient condition
-            </li>
-            <li>
-              <span>✓</span>
-              Relevant observations and vital signs
-            </li>
-            <li>
-              <span>✓</span>
-              Medications and ongoing treatment
-            </li>
-            <li>
-              <span>✓</span>
-              Pending tasks and follow-up
-            </li>
-            <li>
-              <span>✓</span>
-              Important risks and concerns
-            </li>
+            <li><span>✓</span> Current patient condition</li>
+            <li><span>✓</span> Relevant observations and vital signs</li>
+            <li><span>✓</span> Medications and ongoing treatment</li>
+            <li><span>✓</span> Pending tasks and follow-up</li>
+            <li><span>✓</span> Important risks and concerns</li>
           </ul>
 
           <div className="guidance-reminder">
             <strong>Remember</strong>
             <p>
               Verify clinical details and follow your facility's approved
-              handoff procedures.
+              handoff procedures. AI-generated content must be reviewed by a
+              qualified clinician.
             </p>
           </div>
         </aside>

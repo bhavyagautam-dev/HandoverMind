@@ -128,7 +128,7 @@ function PatientAssignments() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/patients/${patient.patient_id}/`,
+        `http://127.0.0.1:8000/api/patients/${patient.id}/`,
         {
           method: "PATCH",
           headers: getHeaders(),

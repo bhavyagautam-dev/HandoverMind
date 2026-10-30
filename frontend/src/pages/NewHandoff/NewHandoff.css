@@ -781,3 +781,102 @@
     margin-top: 20px;
   }
 }
+
+
+.sbar-result {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 24px 0;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.sbar-result h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  color: #172033;
+}
+
+.sbar-result .disclaimer {
+  margin: 0 0 22px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.sbar-result .form-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.sbar-result .form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.sbar-result textarea {
+  display: block;
+  width: 100%;
+  min-height: 230px;
+  box-sizing: border-box;
+  padding: 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.sbar-result .risk-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.sbar-result .risk-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.sbar-result .risk-group select {
+  width: 100%;
+  max-width: 280px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .sbar-result {
+    padding: 16px;
+  }
+
+  .sbar-result h2 {
+    font-size: 22px;
+  }
+
+  .sbar-result textarea {
+    min-height: 200px;
+  }
+
+  .sbar-result .risk-group select {
+    max-width: 100%;
+  }
+}
