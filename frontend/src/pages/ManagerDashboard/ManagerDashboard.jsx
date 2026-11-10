@@ -249,7 +249,7 @@ function ManagerDashboard() {
       tone: "orange",
     },
   ];
-
+  
   return (
     <div className="manager-layout">
       <div

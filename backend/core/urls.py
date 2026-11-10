@@ -11,9 +11,16 @@ from .views import (
     GenerateSBARView,
     IncomingHandoffInboxView,
     AcknowledgeHandoffView,
+    HospitalRegistrationView,
 )
 
 urlpatterns = [
+    #registretion
+    path(
+    "auth/hospital-register/",
+    HospitalRegistrationView.as_view(),
+    name="hospital-register",
+    ),
     # Patients
     path(
         "patients/",

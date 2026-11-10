@@ -1,51 +1,60 @@
+
 from django.utils import timezone
-from django.contrib.auth.models import User, Group
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.db import transaction
+from django.db.models import Count, Q
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Patient, Handoff
-from .serializers import PatientSerializer, HandoffSerializer, NurseCreateSerializer,StaffCreateSerializer
-from .permissions import IsAdmin, IsNurse, IsManager, IsNonMedicalStaff
-
-from .ai_service import generate_sbar_summary
-
-
-from django.contrib.auth import get_user_model
-from django.db import transaction
-from django.db.models import Count, Q
-from rest_framework import status
-from rest_framework.response import Response
-
-from .models import Patient, Handoff
-
-from django.utils import timezone
-from django.contrib.auth import get_user_model
-
-
-
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from .models import Patient, Handoff, Hospital, UserProfile
 
 from .serializers import (
     PatientSerializer,
     HandoffSerializer,
     NurseCreateSerializer,
     StaffCreateSerializer,
+    HospitalRegistrationSerializer,
 )
 
-User = get_user_model()
+from .permissions import IsAdmin, IsNurse
+from .ai_service import generate_sbar_summary
+
 
 User = get_user_model()
 
 
+# ==========================================
+# COMMON HELPERS
+# ==========================================
+
+def get_user_hospital(user):
+    try:
+        return user.profile.hospital
+    except UserProfile.DoesNotExist:
+        return None
+
+
+def has_role(user, role):
+    return user.groups.filter(name=role).exists()
+
+
+def hospital_access_denied():
+    return Response(
+        {"detail": "Hospital profile not found."},
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
+# ==========================================
 # JWT LOGIN
-
+# ==========================================
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
@@ -53,13 +62,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
-        if user.groups.filter(name="Manager").exists():
+        if has_role(user, "Manager"):
             role = "Manager"
-        elif user.groups.filter(name="Non-medical Staff").exists():
+        elif has_role(user, "Non-medical Staff"):
             role = "Non-medical Staff"
-        elif user.groups.filter(name="Nurse").exists():
+        elif has_role(user, "Nurse"):
             role = "Nurse"
-        elif user.groups.filter(name="Admin").exists():
+        elif has_role(user, "Admin"):
             role = "Admin"
         else:
             role = "User"
@@ -67,25 +76,40 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["role"] = role
         token["username"] = user.username
 
+        hospital = get_user_hospital(user)
+
+        if hospital:
+            token["hospital_id"] = hospital.id
+            token["hospital_name"] = hospital.name
+
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
 
-        if self.user.groups.filter(name="Manager").exists():
+        user = self.user
+        hospital = get_user_hospital(user)
+
+        if has_role(user, "Manager"):
             role = "Manager"
-        elif self.user.groups.filter(name="Non-medical Staff").exists():
+        elif has_role(user, "Non-medical Staff"):
             role = "Non-medical Staff"
-        elif self.user.groups.filter(name="Nurse").exists():
+        elif has_role(user, "Nurse"):
             role = "Nurse"
-        elif self.user.groups.filter(name="Admin").exists():
+        elif has_role(user, "Admin"):
             role = "Admin"
         else:
             role = "User"
 
         data["user"] = {
-            "username": self.user.username,
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "role": role,
+            "hospital_id": hospital.id if hospital else None,
+            "hospital_name": hospital.name if hospital else None,
         }
 
         return data
@@ -95,8 +119,53 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+# ==========================================
+# HOSPITAL REGISTRATION
+# ==========================================
 
+class HospitalRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = HospitalRegistrationSerializer(
+            data=request.data
+        )
+
+        if serializer.is_valid():
+            result = serializer.save()
+
+            hospital = result["hospital"]
+            manager = result["manager"]
+
+            return Response(
+                {
+                    "message": "Hospital registered successfully.",
+                    "hospital": {
+                        "id": hospital.id,
+                        "name": hospital.name,
+                        "city": hospital.city,
+                    },
+                    "manager": {
+                        "id": manager.id,
+                        "username": manager.username,
+                        "email": manager.email,
+                        "first_name": manager.first_name,
+                        "last_name": manager.last_name,
+                        "role": "Manager",
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+# ==========================================
 # ROLE TEST APIs
+# ==========================================
 
 class AdminTestView(APIView):
     permission_classes = [IsAdmin]
@@ -118,34 +187,33 @@ class NurseTestView(APIView):
         })
 
 
+# ==========================================
 # PATIENT LIST AND CREATE
-
-
+# ==========================================
 
 class PatientListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
+        hospital = get_user_hospital(request.user)
 
-        is_non_medical = request.user.groups.filter(
-            name="Non-medical Staff"
-        ).exists()
+        if not hospital:
+            return hospital_access_denied()
 
-        is_nurse = request.user.groups.filter(
-            name="Nurse"
-        ).exists()
-
-        if is_nurse:
+        if has_role(request.user, "Nurse"):
             patients = Patient.objects.filter(
+                hospital=hospital,
                 assigned_nurse=request.user,
                 status="Active",
-            ).order_by("-created_at")
+            )
 
-        elif is_manager or is_non_medical:
-            patients = Patient.objects.all().order_by("-created_at")
+        elif (
+            has_role(request.user, "Manager")
+            or has_role(request.user, "Non-medical Staff")
+        ):
+            patients = Patient.objects.filter(
+                hospital=hospital
+            )
 
         else:
             return Response(
@@ -153,39 +221,45 @@ class PatientListCreateView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = PatientSerializer(patients, many=True)
+        patients = patients.order_by("-created_at")
+
+        serializer = PatientSerializer(
+            patients,
+            many=True,
+            context={"hospital": hospital},
+        )
+
         return Response(serializer.data)
 
     def post(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
+        hospital = get_user_hospital(request.user)
 
-        is_non_medical = request.user.groups.filter(
-            name="Non-medical Staff"
-        ).exists()
+        if not hospital:
+            return hospital_access_denied()
 
-        if not (is_manager or is_non_medical):
+        is_manager = has_role(request.user, "Manager")
+        is_staff = has_role(request.user, "Non-medical Staff")
+
+        if not (is_manager or is_staff):
             return Response(
                 {"detail": "Only management staff can add patients."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Non-medical Staff cannot assign a nurse.
         if not is_manager and request.data.get("assigned_nurse"):
             return Response(
-                {
-                    "detail": (
-                        "Only Manager can assign patients to nurses."
-                    )
-                },
+                {"detail": "Only Manager can assign patients to nurses."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = PatientSerializer(data=request.data)
+        serializer = PatientSerializer(
+            data=request.data,
+            context={"hospital": hospital},
+        )
 
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(hospital=hospital)
+
             return Response(
                 serializer.data,
                 status=status.HTTP_201_CREATED,
@@ -197,23 +271,28 @@ class PatientListCreateView(APIView):
         )
 
 
-
+# ==========================================
+# NURSE MANAGEMENT
+# ==========================================
 
 class NurseManagementView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
-
-        if not is_manager:
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can manage nurses."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         nurses = User.objects.filter(
+            profile__hospital=hospital,
+            profile__role="Nurse",
             groups__name="Nurse",
             is_active=True,
         ).distinct().order_by("username")
@@ -222,6 +301,7 @@ class NurseManagementView(APIView):
             {
                 "id": nurse.id,
                 "username": nurse.username,
+                "email": nurse.email,
                 "first_name": nurse.first_name,
                 "last_name": nurse.last_name,
             }
@@ -231,26 +311,28 @@ class NurseManagementView(APIView):
         return Response(data)
 
     def post(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
-
-        if not is_manager:
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can create nurses."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         serializer = NurseCreateSerializer(data=request.data)
 
         if serializer.is_valid():
-            nurse = serializer.save()
+            nurse = serializer.save(hospital=hospital)
 
             return Response(
                 {
                     "message": "Nurse created successfully.",
                     "id": nurse.id,
                     "username": nurse.username,
+                    "hospital": hospital.name,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -260,27 +342,28 @@ class NurseManagementView(APIView):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-
-
     def delete(self, request, nurse_id):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
-
-        if not is_manager:
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can deactivate nurses."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         try:
             nurse = User.objects.get(
                 id=nurse_id,
+                profile__hospital=hospital,
+                profile__role="Nurse",
                 groups__name="Nurse",
             )
         except User.DoesNotExist:
             return Response(
-                {"detail": "Nurse not found."},
+                {"detail": "Nurse not found in your hospital."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -290,8 +373,8 @@ class NurseManagementView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Prevent deactivating a nurse who still has active patients.
         if Patient.objects.filter(
+            hospital=hospital,
             assigned_nurse=nurse,
             status="Active",
         ).exists():
@@ -313,37 +396,42 @@ class NurseManagementView(APIView):
             status=status.HTTP_200_OK,
         )
 
-# PATIENT DETAILS, EDIT, DISCHARGE
 
-
+# ==========================================
+# PATIENT DETAILS, EDIT AND DISCHARGE
+# ==========================================
 
 class PatientDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, patient_id):
+    def get_patient(self, request, patient_id):
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return None, hospital_access_denied()
+
         try:
-            patient = Patient.objects.get(id=patient_id)
+            patient = Patient.objects.get(
+                id=patient_id,
+                hospital=hospital,
+            )
         except Patient.DoesNotExist:
-            return Response(
+            return None, Response(
                 {"detail": "Patient not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
+        return patient, None
 
-        is_non_medical = request.user.groups.filter(
-            name="Non-medical Staff"
-        ).exists()
+    def get(self, request, patient_id):
+        patient, error = self.get_patient(request, patient_id)
 
-        is_nurse = request.user.groups.filter(
-            name="Nurse"
-        ).exists()
+        if error:
+            return error
 
-        if is_nurse:
+        if has_role(request.user, "Nurse"):
             if (
-                patient.assigned_nurse != request.user
+                patient.assigned_nurse_id != request.user.id
                 or patient.status != "Active"
             ):
                 return Response(
@@ -351,7 +439,10 @@ class PatientDetailView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        elif not (is_manager or is_non_medical):
+        elif not (
+            has_role(request.user, "Manager")
+            or has_role(request.user, "Non-medical Staff")
+        ):
             return Response(
                 {"detail": "You do not have permission to view this patient."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -367,19 +458,19 @@ class PatientDetailView(APIView):
         return self.update_patient(request, patient_id)
 
     def update_patient(self, request, patient_id):
-        if not self.is_management_staff(request):
+        if not (
+            has_role(request.user, "Manager")
+            or has_role(request.user, "Non-medical Staff")
+        ):
             return Response(
                 {"detail": "You do not have permission to edit patients."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            patient = Patient.objects.get(id=patient_id)
-        except Patient.DoesNotExist:
-            return Response(
-                {"detail": "Patient not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        patient, error = self.get_patient(request, patient_id)
+
+        if error:
+            return error
 
         if patient.status == "Discharged":
             return Response(
@@ -387,19 +478,12 @@ class PatientDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Only Manager can assign or reassign a nurse.
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
+        hospital = get_user_hospital(request.user)
+        is_manager = has_role(request.user, "Manager")
 
         if not is_manager and "assigned_nurse" in request.data:
             return Response(
-                {
-                    "detail": (
-                        "Only Manager can assign or reassign "
-                        "patients to nurses."
-                    )
-                },
+                {"detail": "Only Manager can assign patients to nurses."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -407,10 +491,11 @@ class PatientDetailView(APIView):
             patient,
             data=request.data,
             partial=(request.method == "PATCH"),
+            context={"hospital": hospital},
         )
 
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(hospital=hospital)
             return Response(serializer.data)
 
         return Response(
@@ -425,23 +510,19 @@ class PatientDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not self.is_management_staff(request):
+        if not (
+            has_role(request.user, "Manager")
+            or has_role(request.user, "Non-medical Staff")
+        ):
             return Response(
-                {
-                    "detail": (
-                        "You do not have permission to discharge patients."
-                    )
-                },
+                {"detail": "You do not have permission to discharge patients."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            patient = Patient.objects.get(id=patient_id)
-        except Patient.DoesNotExist:
-            return Response(
-                {"detail": "Patient not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        patient, error = self.get_patient(request, patient_id)
+
+        if error:
+            return error
 
         if patient.status == "Discharged":
             return Response(
@@ -451,7 +532,10 @@ class PatientDetailView(APIView):
 
         patient.status = "Discharged"
         patient.discharge_date = timezone.localdate()
-        patient.save(update_fields=["status", "discharge_date"])
+
+        patient.save(
+            update_fields=["status", "discharge_date"]
+        )
 
         return Response({
             "message": "Patient discharged successfully.",
@@ -463,30 +547,32 @@ class PatientDetailView(APIView):
     @staticmethod
     def is_management_staff(request):
         return (
-            request.user.groups.filter(name="Manager").exists()
-            or request.user.groups.filter(
-                name="Non-medical Staff"
-            ).exists()
+            has_role(request.user, "Manager")
+            or has_role(request.user, "Non-medical Staff")
         )
 
 
-#Change The Nurse
+# ==========================================
+# NURSE REASSIGNMENT
+# ==========================================
 
 def select_next_nurse(current_nurse, patient):
-    """
-    Select a different active Nurse with the lowest active-patient
-    workload. Return None if no eligible nurse is available.
-    """
+
     candidates = (
         User.objects.filter(
             is_active=True,
-            groups__name__iexact="Nurse",
+            groups__name="Nurse",
+            profile__hospital=patient.hospital,
+            profile__role="Nurse",
         )
         .exclude(pk=current_nurse.pk)
         .annotate(
             active_patient_count=Count(
                 "assigned_patients",
-                filter=Q(assigned_patients__status="Active"),
+                filter=Q(
+                    assigned_patients__status="Active",
+                    assigned_patients__hospital=patient.hospital,
+                ),
                 distinct=True,
             )
         )
@@ -497,36 +583,47 @@ def select_next_nurse(current_nurse, patient):
     return candidates.first()
 
 
+# ==========================================
 # HANDOFF LIST AND CREATE
-
-
-
+# ==========================================
 
 class HandoffListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.groups.filter(name="Nurse").exists():
+        if not has_role(request.user, "Nurse"):
             return Response(
                 {"detail": "Only nurses can access handoff history."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Preserve outgoing nurse's own history.
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         handoffs = Handoff.objects.filter(
-            nurse=request.user
+            nurse=request.user,
+            patient__hospital=hospital,
         ).select_related(
             "patient", "nurse", "incoming_nurse"
         ).order_by("-created_at")
 
-        return Response(HandoffSerializer(handoffs, many=True).data)
+        return Response(
+            HandoffSerializer(handoffs, many=True).data
+        )
 
     def post(self, request):
-        if not request.user.groups.filter(name="Nurse").exists():
+        if not has_role(request.user, "Nurse"):
             return Response(
                 {"detail": "Only nurses can create handoffs."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
 
         serializer = HandoffSerializer(data=request.data)
 
@@ -538,10 +635,23 @@ class HandoffListCreateView(APIView):
 
         patient = serializer.validated_data["patient"]
 
-        with transaction.atomic():
-            locked_patient = Patient.objects.select_for_update().get(
-                pk=patient.pk
+        if patient.hospital_id != hospital.id:
+            return Response(
+                {"detail": "Patient belongs to another hospital."},
+                status=status.HTTP_403_FORBIDDEN,
             )
+
+        with transaction.atomic():
+            try:
+                locked_patient = Patient.objects.select_for_update().get(
+                    pk=patient.pk,
+                    hospital=hospital,
+                )
+            except Patient.DoesNotExist:
+                return Response(
+                    {"detail": "Patient not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             if locked_patient.status != "Active":
                 return Response(
@@ -575,10 +685,16 @@ class HandoffListCreateView(APIView):
 
                 if next_nurse is not None:
                     locked_patient.assigned_nurse = next_nurse
-                    locked_patient.save(update_fields=["assigned_nurse"])
+
+                    locked_patient.save(
+                        update_fields=["assigned_nurse"]
+                    )
 
                     handoff.incoming_nurse = next_nurse
-                    handoff.save(update_fields=["incoming_nurse", "updated_at"])
+
+                    handoff.save(
+                        update_fields=["incoming_nurse", "updated_at"]
+                    )
 
                     reassignment = {
                         "reassigned": True,
@@ -595,42 +711,63 @@ class HandoffListCreateView(APIView):
             response_data = HandoffSerializer(handoff).data
             response_data["reassignment"] = reassignment
 
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(
+            response_data,
+            status=status.HTTP_201_CREATED,
+        )
 
+
+# ==========================================
+# INCOMING HANDOFF INBOX
+# ==========================================
 
 class IncomingHandoffInboxView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.groups.filter(name="Nurse").exists():
+        if not has_role(request.user, "Nurse"):
             return Response(
                 {"detail": "Only nurses can access the incoming handoff inbox."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         handoffs = Handoff.objects.filter(
             incoming_nurse=request.user,
+            patient__hospital=hospital,
             status__in=["Submitted", "Acknowledged"],
         ).select_related(
             "patient", "nurse", "incoming_nurse"
         ).order_by("-created_at")
 
-        return Response(HandoffSerializer(handoffs, many=True).data)
+        return Response(
+            HandoffSerializer(handoffs, many=True).data
+        )
 
 
+# ==========================================
+# ACKNOWLEDGE HANDOFF
+# ==========================================
 
 class AcknowledgeHandoffView(APIView):
     permission_classes = [IsAuthenticated, IsNurse]
 
     def post(self, request, handoff_id):
-        from django.utils import timezone
-        from django.db import transaction
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
 
         with transaction.atomic():
             try:
                 handoff = Handoff.objects.select_for_update().get(
                     id=handoff_id,
                     incoming_nurse=request.user,
+                    patient__hospital=hospital,
                 )
             except Handoff.DoesNotExist:
                 return Response(
@@ -639,7 +776,9 @@ class AcknowledgeHandoffView(APIView):
                 )
 
             if handoff.status == "Acknowledged":
-                return Response(HandoffSerializer(handoff).data)
+                return Response(
+                    HandoffSerializer(handoff).data
+                )
 
             if handoff.status != "Submitted":
                 return Response(
@@ -649,6 +788,7 @@ class AcknowledgeHandoffView(APIView):
 
             handoff.status = "Acknowledged"
             handoff.acknowledged_at = timezone.now()
+
             handoff.save(
                 update_fields=[
                     "status",
@@ -657,21 +797,29 @@ class AcknowledgeHandoffView(APIView):
                 ]
             )
 
-        return Response(HandoffSerializer(handoff).data)
+        return Response(
+            HandoffSerializer(handoff).data
+        )
 
-    
-#Generate SBAR View
+
+# ==========================================
+# GENERATE SBAR
+# ==========================================
 
 class GenerateSBARView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # Only nurses can generate handoff summaries
-        if not request.user.groups.filter(name="Nurse").exists():
+        if not has_role(request.user, "Nurse"):
             return Response(
                 {"detail": "Only nurses can generate handoff summaries."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
 
         patient_id = request.data.get("patient")
         notes = request.data.get("input_text", "").strip()
@@ -689,7 +837,10 @@ class GenerateSBARView(APIView):
             )
 
         try:
-            patient = Patient.objects.get(pk=patient_id)
+            patient = Patient.objects.get(
+                pk=patient_id,
+                hospital=hospital,
+            )
         except (Patient.DoesNotExist, ValueError, TypeError):
             return Response(
                 {"detail": "Patient not found."},
@@ -710,46 +861,54 @@ class GenerateSBARView(APIView):
 
         try:
             result = generate_sbar_summary(notes)
-            return Response(result, status=status.HTTP_200_OK)
 
-        except Exception as e:
+            return Response(
+                result,
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception:
             import logging
             logging.exception("SBAR generation failed")
 
             return Response(
-                {
-                    "detail": f"SBAR generation failed: {str(e)}"
-                },
+                {"detail": "SBAR generation failed. Please try again."},
                 status=status.HTTP_502_BAD_GATEWAY,
-    )
+            )
 
 
-
-
+# ==========================================
 # HANDOFF DETAILS
-
+# ==========================================
 
 class HandoffDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, handoff_id):
-        if not request.user.groups.filter(name="Nurse").exists():
+        if not has_role(request.user, "Nurse"):
             return Response(
                 {"detail": "Only nurses can access handoff details."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         try:
             handoff = Handoff.objects.select_related(
                 "patient", "nurse", "incoming_nurse"
-            ).get(pk=handoff_id)
+            ).get(
+                pk=handoff_id,
+                patient__hospital=hospital,
+            )
         except Handoff.DoesNotExist:
             return Response(
                 {"detail": "Handoff not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Only the outgoing or assigned incoming nurse can view it.
         if (
             handoff.nurse_id != request.user.id
             and handoff.incoming_nurse_id != request.user.id
@@ -759,25 +918,33 @@ class HandoffDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(HandoffSerializer(handoff).data)
+        return Response(
+            HandoffSerializer(handoff).data
+        )
 
 
+# ==========================================
+# STAFF MANAGEMENT
+# ==========================================
 
 class StaffManagementView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
-
-        if not is_manager:
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can manage staff."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         staff_members = User.objects.filter(
+            profile__hospital=hospital,
+            profile__role="Non-medical Staff",
             groups__name="Non-medical Staff",
             is_active=True,
         ).distinct().order_by("username")
@@ -786,6 +953,7 @@ class StaffManagementView(APIView):
             {
                 "id": staff.id,
                 "username": staff.username,
+                "email": staff.email,
                 "first_name": staff.first_name,
                 "last_name": staff.last_name,
             }
@@ -795,26 +963,28 @@ class StaffManagementView(APIView):
         return Response(data)
 
     def post(self, request):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
-
-        if not is_manager:
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can create staff accounts."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         serializer = StaffCreateSerializer(data=request.data)
 
         if serializer.is_valid():
-            staff = serializer.save()
+            staff = serializer.save(hospital=hospital)
 
             return Response(
                 {
                     "message": "Staff account created successfully.",
                     "id": staff.id,
                     "username": staff.username,
+                    "hospital": hospital.name,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -823,26 +993,29 @@ class StaffManagementView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST,
         )
-    
-    def delete(self, request, staff_id):
-        is_manager = request.user.groups.filter(
-            name="Manager"
-        ).exists()
 
-        if not is_manager:
+    def delete(self, request, staff_id):
+        if not has_role(request.user, "Manager"):
             return Response(
                 {"detail": "Only Manager can deactivate staff."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        hospital = get_user_hospital(request.user)
+
+        if not hospital:
+            return hospital_access_denied()
+
         try:
             staff = User.objects.get(
                 id=staff_id,
+                profile__hospital=hospital,
+                profile__role="Non-medical Staff",
                 groups__name="Non-medical Staff",
             )
         except User.DoesNotExist:
             return Response(
-                {"detail": "Staff account not found."},
+                {"detail": "Staff account not found in your hospital."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 

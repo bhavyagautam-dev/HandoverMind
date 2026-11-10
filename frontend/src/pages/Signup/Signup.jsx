@@ -1,9 +1,16 @@
+
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Signup.css";
 
+const API_BASE_URL = "http://127.0.0.1:8000/api";
+
 function Signup() {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
+    hospitalName: "",
+    city: "",
     fullName: "",
     username: "",
     email: "",
@@ -13,6 +20,7 @@ function Signup() {
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -26,11 +34,21 @@ function Signup() {
     setMessage("");
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
+    if (!formData.hospitalName.trim()) {
+      setError("Please enter your hospital name.");
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      setError("Please enter your city.");
+      return;
+    }
+
     if (formData.fullName.trim().length < 2) {
-      setError("Please enter your full name.");
+      setError("Please enter the Manager's full name.");
       return;
     }
 
@@ -49,34 +67,132 @@ function Signup() {
       return;
     }
 
-    setMessage(
-      "Your details are valid. Account creation requires a registration API."
-    );
+    const nameParts = formData.fullName.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ");
+
+    const payload = {
+      hospital_name: formData.hospitalName.trim(),
+      city: formData.city.trim(),
+      first_name: firstName,
+      last_name: lastName,
+      username: formData.username.trim(),
+      email: formData.email.trim(),
+      password: formData.password,
+    };
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/auth/hospital-register/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errors = Object.entries(data)
+          .map(([field, value]) => {
+            const detail = Array.isArray(value)
+              ? value.join(", ")
+              : typeof value === "string"
+                ? value
+                : JSON.stringify(value);
+
+            return `${field}: ${detail}`;
+          })
+          .join(" | ");
+
+        throw new Error(errors || "Registration failed.");
+      }
+
+      setMessage(
+        "Hospital registered successfully! Redirecting to login..."
+      );
+
+      // Registration does not automatically log in the Manager.
+      navigate("/login", {
+        replace: true,
+        state: {
+          registrationSuccess: true,
+        },
+      });
+
+    } catch (err) {
+      setError(
+        err.message || "Unable to register hospital. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <main className="signup-container">
       <section className="signup-card">
+
         <Link to="/" className="signup-brand">
           <span className="signup-brand-icon">+</span>
           HandoverMind
         </Link>
 
         <div className="signup-heading">
-          <h1>Create your account</h1>
+          <h1>Register Your Hospital</h1>
           <p>
-            Join HandoverMind to support better nursing shift handoffs.
+            Create a hospital account and register its Manager.
           </p>
         </div>
 
         <form className="signup-form" onSubmit={handleSubmit}>
+
+          <h3>Hospital Information</h3>
+
           <div className="signup-field">
-            <label htmlFor="fullName">Full Name</label>
+            <label htmlFor="hospitalName">Hospital Name</label>
+            <input
+              id="hospitalName"
+              name="hospitalName"
+              type="text"
+              placeholder="Enter hospital name"
+              value={formData.hospitalName}
+              onChange={handleChange}
+              maxLength={200}
+              required
+            />
+          </div>
+
+          <div className="signup-field">
+            <label htmlFor="city">City</label>
+            <input
+              id="city"
+              name="city"
+              type="text"
+              placeholder="Enter city"
+              value={formData.city}
+              onChange={handleChange}
+              maxLength={100}
+              required
+            />
+          </div>
+
+          <h3>Hospital Manager Information</h3>
+
+          <div className="signup-field">
+            <label htmlFor="fullName">Manager Full Name</label>
             <input
               id="fullName"
               name="fullName"
               type="text"
-              placeholder="Enter your full name"
+              placeholder="Enter Manager's full name"
               value={formData.fullName}
               onChange={handleChange}
               autoComplete="name"
@@ -105,7 +221,7 @@ function Signup() {
               id="email"
               name="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder="manager@hospital.com"
               value={formData.email}
               onChange={handleChange}
               autoComplete="email"
@@ -119,7 +235,7 @@ function Signup() {
               id="password"
               name="password"
               type="password"
-              placeholder="Create a password"
+              placeholder="Create a strong password"
               value={formData.password}
               onChange={handleChange}
               autoComplete="new-password"
@@ -129,7 +245,9 @@ function Signup() {
           </div>
 
           <div className="signup-field">
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label htmlFor="confirmPassword">
+              Confirm Password
+            </label>
             <input
               id="confirmPassword"
               name="confirmPassword"
@@ -155,19 +273,25 @@ function Signup() {
             </div>
           )}
 
-          <button type="submit" className="signup-submit">
-            Create Account
+          <button
+            type="submit"
+            className="signup-submit"
+            disabled={loading}
+          >
+            {loading ? "Registering..." : "Register Hospital"}
           </button>
+
         </form>
 
         <div className="signup-footer">
           <p>
-            Already have an account?{" "}
+            Already registered?{" "}
             <Link to="/" className="signup-login-link">
               Sign in
             </Link>
           </p>
         </div>
+
       </section>
 
       <p className="signup-security-note">

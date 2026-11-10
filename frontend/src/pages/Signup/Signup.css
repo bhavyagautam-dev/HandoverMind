@@ -171,7 +171,37 @@
   font-size: 12px;
   text-align: center;
 }
+.signup-form h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 18px 0 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1e293b;
+}
 
+.signup-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.signup-error {
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.signup-success {
+  padding: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 13px;
+}
 @media (max-width: 480px) {
   .signup-container {
     padding: 24px 14px;

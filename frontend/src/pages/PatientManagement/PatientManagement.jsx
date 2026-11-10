@@ -6,14 +6,12 @@ import "./PatientManagement.css";
 const API_URL = "http://127.0.0.1:8000/api/patients/";
 
 const EMPTY_FORM = {
-  patient_id: "",
   name: "",
   age: "",
   gender: "",
   room_number: "",
   diagnosis: "",
   allergies: "",
-  admission_date: "",
 };
 
 function PatientManagement() {
@@ -30,9 +28,17 @@ function PatientManagement() {
   const [editingPatient, setEditingPatient] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
+  // ==========================================
+  // AUTHENTICATION
+  // ==========================================
+
   const getToken = () =>
     localStorage.getItem("access_token") ||
     sessionStorage.getItem("access_token");
+
+  // ==========================================
+  // API RESPONSE HANDLER
+  // ==========================================
 
   const readResponse = async (response) => {
     const text = await response.text();
@@ -43,10 +49,14 @@ function PatientManagement() {
       return JSON.parse(text);
     } catch {
       throw new Error(
-        "Server returned HTML instead of JSON. Check the Django terminal."
+        "Server returned HTML instead of JSON. Check Django terminal."
       );
     }
   };
+
+  // ==========================================
+  // FETCH PATIENTS
+  // ==========================================
 
   const fetchPatients = useCallback(async () => {
     setLoading(true);
@@ -73,12 +83,15 @@ function PatientManagement() {
           throw new Error("Session expired. Please log in again.");
         }
 
-        throw new Error(data.detail || "Unable to load patient records.");
+        throw new Error(
+          data.detail || "Unable to load patient records."
+        );
       }
 
       const list = Array.isArray(data) ? data : data.results;
 
       setPatients(Array.isArray(list) ? list : []);
+
     } catch (err) {
       setError(err.message || "Unable to connect to the server.");
     } finally {
@@ -90,11 +103,19 @@ function PatientManagement() {
     fetchPatients();
   }, [fetchPatients]);
 
+  // ==========================================
+  // RESET FORM
+  // ==========================================
+
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
     setEditingPatient(null);
     setShowForm(false);
   };
+
+  // ==========================================
+  // HANDLE INPUT CHANGE
+  // ==========================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -105,6 +126,10 @@ function PatientManagement() {
     }));
   };
 
+  // ==========================================
+  // ADD PATIENT
+  // ==========================================
+
   const handleAddClick = () => {
     setError("");
     setSuccess("");
@@ -112,6 +137,10 @@ function PatientManagement() {
     setForm({ ...EMPTY_FORM });
     setShowForm(true);
   };
+
+  // ==========================================
+  // EDIT PATIENT
+  // ==========================================
 
   const handleEdit = (patient) => {
     if (patient.status === "Discharged") return;
@@ -121,22 +150,29 @@ function PatientManagement() {
     setEditingPatient(patient);
 
     setForm({
-      patient_id: patient.patient_id || "",
       name: patient.name || "",
       age: patient.age ?? "",
       gender: patient.gender || "",
       room_number: patient.room_number || "",
       diagnosis: patient.diagnosis || "",
       allergies: patient.allergies || "",
-      admission_date: patient.admission_date || "",
     });
 
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
+
+  // ==========================================
+  // SAVE / UPDATE PATIENT
+  // ==========================================
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
     setError("");
     setSuccess("");
     setSaving(true);
@@ -150,16 +186,20 @@ function PatientManagement() {
       }
 
       const isEditing = Boolean(editingPatient);
+
       const url = isEditing
         ? `${API_URL}${editingPatient.id}/`
         : API_URL;
+
+      // Patient ID and Admission Date are NOT sent.
+      // Backend generates both automatically.
 
       const payload = {
         ...form,
         age: Number(form.age),
       };
 
-      // Patient assignment is managed separately by the Manager.
+      // Patient assignment is managed separately by Manager.
       if (!isEditing) {
         payload.assigned_nurse = null;
       }
@@ -200,16 +240,21 @@ function PatientManagement() {
       setSuccess(
         isEditing
           ? "Patient details updated successfully."
-          : "Patient added successfully."
+          : `Patient added successfully. Patient ID: ${data.patient_id}`
       );
 
       await fetchPatients();
+
     } catch (err) {
       setError(err.message || "Unable to save patient.");
     } finally {
       setSaving(false);
     }
   };
+
+  // ==========================================
+  // DISCHARGE PATIENT
+  // ==========================================
 
   const handleDischarge = async (patient) => {
     if (patient.status === "Discharged") return;
@@ -250,15 +295,44 @@ function PatientManagement() {
           throw new Error("Session expired. Please log in again.");
         }
 
-        throw new Error(data.detail || "Unable to discharge patient.");
+        throw new Error(
+          data.detail || "Unable to discharge patient."
+        );
       }
 
       setSuccess(`${patient.name} has been discharged.`);
+
       await fetchPatients();
+
     } catch (err) {
       setError(err.message || "Unable to discharge patient.");
     }
   };
+
+  // ==========================================
+  // DATE FORMATTER
+  // ==========================================
+
+  const formatDate = (date) => {
+    if (!date) return "—";
+
+    // Avoid timezone shifting for date-only values.
+    const parsedDate = new Date(`${date}T00:00:00`);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // ==========================================
+  // SEARCH AND FILTER
+  // ==========================================
 
   const filteredPatients = patients.filter((patient) => {
     const query = search.trim().toLowerCase();
@@ -268,14 +342,21 @@ function PatientManagement() {
       patient.patient_id,
       patient.room_number,
       patient.diagnosis,
-    ].some((value) => String(value || "").toLowerCase().includes(query));
+    ].some((value) =>
+      String(value || "").toLowerCase().includes(query)
+    );
 
     const status = patient.status || "Active";
+
     const matchesStatus =
       statusFilter === "All" || status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
+
+  // ==========================================
+  // STATISTICS
+  // ==========================================
 
   const activeCount = patients.filter(
     (patient) => patient.status !== "Discharged"
@@ -285,12 +366,23 @@ function PatientManagement() {
     (patient) => patient.status === "Discharged"
   ).length;
 
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
     <main className="pm-page">
+
+      {/* HEADER */}
+
       <header className="pm-header">
         <div>
-          <p className="pm-eyebrow">HANDOVERMIND / MANAGEMENT</p>
+          <p className="pm-eyebrow">
+            HANDOVERMIND / MANAGEMENT
+          </p>
+
           <h1>Patient Management</h1>
+
           <p className="pm-subtitle">
             Manage patient records, admissions and discharge status.
           </p>
@@ -305,46 +397,74 @@ function PatientManagement() {
         </button>
       </header>
 
+      {/* ERROR MESSAGE */}
+
       {error && (
         <div className="pm-message pm-error" role="alert">
           <span>{error}</span>
-          <button type="button" onClick={() => setError("")}>
+
+          <button
+            type="button"
+            onClick={() => setError("")}
+          >
             Dismiss
           </button>
         </div>
       )}
+
+      {/* SUCCESS MESSAGE */}
 
       {success && (
         <div className="pm-message pm-success" role="status">
           <span>{success}</span>
-          <button type="button" onClick={() => setSuccess("")}>
+
+          <button
+            type="button"
+            onClick={() => setSuccess("")}
+          >
             Dismiss
           </button>
         </div>
       )}
 
+      {/* STATISTICS */}
+
       <section className="pm-stats">
+
         <article className="pm-stat-card">
-          <span className="pm-stat-label">Total Patients</span>
+          <span className="pm-stat-label">
+            Total Patients
+          </span>
           <strong>{patients.length}</strong>
         </article>
 
         <article className="pm-stat-card">
-          <span className="pm-stat-label">Active Patients</span>
+          <span className="pm-stat-label">
+            Active Patients
+          </span>
           <strong>{activeCount}</strong>
         </article>
 
         <article className="pm-stat-card">
-          <span className="pm-stat-label">Discharged</span>
+          <span className="pm-stat-label">
+            Discharged
+          </span>
           <strong>{dischargedCount}</strong>
         </article>
+
       </section>
+
+      {/* ADD / EDIT FORM */}
 
       {showForm && (
         <section className="pm-card pm-form-card">
+
           <div className="pm-section-heading">
             <div>
-              <h2>{editingPatient ? "Edit Patient" : "Add New Patient"}</h2>
+              <h2>
+                {editingPatient ? "Edit Patient" : "Add New Patient"}
+              </h2>
+
               <p className="pm-muted">
                 {editingPatient
                   ? "Update the patient's record."
@@ -363,30 +483,28 @@ function PatientManagement() {
           </div>
 
           <form onSubmit={handleSubmit}>
+
             <div className="pm-form-grid">
-              <label>
-                Patient ID *
-                <input
-                  name="patient_id"
-                  value={form.patient_id}
-                  onChange={handleChange}
-                  required
-                  disabled={Boolean(editingPatient)}
-                />
-              </label>
+
+              {/* PATIENT NAME */}
 
               <label>
                 Full Name *
+
                 <input
                   name="name"
                   value={form.name}
                   onChange={handleChange}
                   required
+                  placeholder="Enter patient name"
                 />
               </label>
 
+              {/* AGE */}
+
               <label>
                 Age *
+
                 <input
                   name="age"
                   type="number"
@@ -395,11 +513,15 @@ function PatientManagement() {
                   value={form.age}
                   onChange={handleChange}
                   required
+                  placeholder="Enter age"
                 />
               </label>
 
+              {/* GENDER */}
+
               <label>
                 Gender *
+
                 <select
                   name="gender"
                   value={form.gender}
@@ -413,40 +535,40 @@ function PatientManagement() {
                 </select>
               </label>
 
+              {/* ROOM NUMBER */}
+
               <label>
                 Room Number *
+
                 <input
                   name="room_number"
                   value={form.room_number}
                   onChange={handleChange}
                   required
+                  placeholder="Enter room number"
                 />
               </label>
 
-              <label>
-                Admission Date *
-                <input
-                  name="admission_date"
-                  type="date"
-                  value={form.admission_date}
-                  onChange={handleChange}
-                  required
-                />
-              </label>
+              {/* DIAGNOSIS */}
 
               <label className="pm-full-width">
                 Diagnosis *
+
                 <textarea
                   name="diagnosis"
                   value={form.diagnosis}
                   onChange={handleChange}
                   rows="3"
                   required
+                  placeholder="Enter patient diagnosis"
                 />
               </label>
 
+              {/* ALLERGIES */}
+
               <label className="pm-full-width">
                 Allergies
+
                 <textarea
                   name="allergies"
                   value={form.allergies}
@@ -455,9 +577,11 @@ function PatientManagement() {
                   placeholder="Known allergies or None reported"
                 />
               </label>
+
             </div>
 
             <div className="pm-form-actions">
+
               <button
                 type="submit"
                 className="pm-primary-btn"
@@ -478,21 +602,31 @@ function PatientManagement() {
               >
                 Cancel
               </button>
+
             </div>
+
           </form>
         </section>
       )}
 
+      {/* PATIENT RECORDS */}
+
       <section className="pm-card">
+
         <div className="pm-list-heading">
+
           <div>
             <h2>Patient Records</h2>
+
             <p className="pm-muted">
               {filteredPatients.length} of {patients.length} patient records
             </p>
           </div>
 
+          {/* SEARCH AND FILTER */}
+
           <div className="pm-filters">
+
             <input
               className="pm-search"
               type="search"
@@ -511,23 +645,35 @@ function PatientManagement() {
               <option value="Active">Active</option>
               <option value="Discharged">Discharged</option>
             </select>
+
           </div>
         </div>
 
+        {/* LOADING */}
+
         {loading ? (
-          <div className="pm-empty-state">Loading patient records...</div>
+          <div className="pm-empty-state">
+            Loading patient records...
+          </div>
+
         ) : filteredPatients.length === 0 ? (
+
           <div className="pm-empty-state">
             <h3>No patients found</h3>
             <p>Try another search or add a patient record.</p>
           </div>
+
         ) : (
+
           <div className="pm-table-wrapper">
+
             <table className="pm-table">
+
               <thead>
                 <tr>
                   <th>Patient</th>
                   <th>Patient ID</th>
+                  <th>Admission Date</th>
                   <th>Room</th>
                   <th>Diagnosis</th>
                   <th>Status</th>
@@ -536,25 +682,55 @@ function PatientManagement() {
               </thead>
 
               <tbody>
+
                 {filteredPatients.map((patient) => (
+
                   <tr key={patient.id}>
+
+                    {/* PATIENT NAME */}
+
                     <td>
                       <div className="pm-patient-name">
+
                         <span className="pm-avatar">
                           {(patient.name || "?")
                             .trim()
                             .charAt(0)
                             .toUpperCase()}
                         </span>
-                        <span>{patient.name || "Unnamed Patient"}</span>
+
+                        <span>
+                          {patient.name || "Unnamed Patient"}
+                        </span>
+
                       </div>
                     </td>
 
-                    <td>{patient.patient_id || patient.id}</td>
-                    <td>{patient.room_number || "—"}</td>
+                    {/* AUTO PATIENT ID */}
+
+                    <td>
+                      {patient.patient_id || "—"}
+                    </td>
+
+                    {/* AUTO ADMISSION DATE */}
+
+                    <td>
+                      {formatDate(patient.admission_date)}
+                    </td>
+
+                    {/* ROOM */}
+
+                    <td>
+                      {patient.room_number || "—"}
+                    </td>
+
+                    {/* DIAGNOSIS */}
+
                     <td className="pm-diagnosis">
                       {patient.diagnosis || "—"}
                     </td>
+
+                    {/* STATUS */}
 
                     <td>
                       <span
@@ -568,8 +744,11 @@ function PatientManagement() {
                       </span>
                     </td>
 
+                    {/* ACTIONS */}
+
                     <td>
                       <div className="pm-actions">
+
                         <button
                           type="button"
                           className="pm-edit-btn"
@@ -588,15 +767,24 @@ function PatientManagement() {
                             Discharge
                           </button>
                         )}
+
                       </div>
                     </td>
+
                   </tr>
+
                 ))}
+
               </tbody>
+
             </table>
+
           </div>
+
         )}
+
       </section>
+
     </main>
   );
 }
