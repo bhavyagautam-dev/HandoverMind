@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./NurseManagement.css";
 
 function NurseManagement() {
@@ -32,7 +33,7 @@ function NurseManagement() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/nurses/",
+        "${API_URL}/nurses/",
         {
           headers: {
             Authorization: `Bearer ${getToken()}`,
@@ -94,7 +95,7 @@ function NurseManagement() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/nurses/",
+        "${API_URL}/nurses/",
         {
           method: "POST",
           headers: {
@@ -144,7 +145,7 @@ function NurseManagement() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/nurses/${nurseId}/`,
+        `${API_URL}/nurses/${nurseId}/`,
         {
           method: "DELETE",
           headers: {
@@ -185,7 +186,7 @@ function NurseManagement() {
           className="nm-back-button"
           onClick={() => navigate("/manager")}
         >
-          ← Dashboard
+          â† Dashboard
         </button>
       </header>
 
@@ -296,7 +297,7 @@ function NurseManagement() {
                     <td>
                       {[nurse.first_name, nurse.last_name]
                         .filter(Boolean)
-                        .join(" ") || "—"}
+                        .join(" ") || "â€”"}
                     </td>
                     <td>
                       <button

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./StaffManagement.css";
 
 function StaffManagement() {
@@ -32,7 +33,7 @@ function StaffManagement() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/staff/",
+        `${API_URL}/staff/`,
         {
           headers: {
             Authorization: `Bearer ${getToken()}`,
@@ -95,7 +96,7 @@ function StaffManagement() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/staff/",
+        `${API_URL}/staff/`,
         {
           method: "POST",
           headers: {
@@ -148,7 +149,7 @@ function StaffManagement() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/staff/${staffId}/`,
+        `${API_URL}/staff/${staffId}/`,
         {
           method: "DELETE",
           headers: {
@@ -194,7 +195,7 @@ function StaffManagement() {
           className="sm-back-button"
           onClick={() => navigate("/manager")}
         >
-          ← Dashboard
+          â† Dashboard
         </button>
       </header>
 
@@ -310,7 +311,7 @@ function StaffManagement() {
                     <td>
                       {[member.first_name, member.last_name]
                         .filter(Boolean)
-                        .join(" ") || "—"}
+                        .join(" ") || "â€”"}
                     </td>
                     <td>
                       <button
@@ -334,3 +335,4 @@ function StaffManagement() {
 }
 
 export default StaffManagement;
+

@@ -1,9 +1,9 @@
-
+﻿
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./Patients.css";
 
-const API_URL = "http://127.0.0.1:8000/api/patients/";
 
 function getAccessToken() {
   return (
@@ -174,7 +174,7 @@ function Patients() {
       <main className="patient-details-page">
         <div className="patient-page-topbar">
           <button className="back-button" onClick={goBack}>
-            <span aria-hidden="true">←</span> Back to Dashboard
+            <span aria-hidden="true">â†</span> Back to Dashboard
           </button>
 
           <button className="back-button" onClick={handleLogout}>
@@ -217,7 +217,7 @@ function Patients() {
     <main className="patient-details-page">
       <div className="patient-page-topbar">
         <button className="back-button" onClick={goBack}>
-          <span aria-hidden="true">←</span> Back to Dashboard
+          <span aria-hidden="true">â†</span> Back to Dashboard
         </button>
 
         <span className="patient-page-label">Patient Management</span>
@@ -398,15 +398,16 @@ function Patients() {
         >
           <span aria-hidden="true">+</span>
           Create New Handoff
-          <span aria-hidden="true">→</span>
+          <span aria-hidden="true">â†’</span>
         </button>
       </section>
 
       <footer className="patient-page-footer">
-        HandoverMind · Patient Management
+        HandoverMind Â· Patient Management
       </footer>
     </main>
   );
 }
 
 export default Patients;
+

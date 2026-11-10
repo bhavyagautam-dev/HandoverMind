@@ -1,9 +1,9 @@
-
+﻿
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./Signup.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 function Signup() {
   const navigate = useNavigate();
@@ -87,7 +87,7 @@ function Signup() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/auth/hospital-register/`,
+        `${API_URL}/auth/hospital-register/`,
         {
           method: "POST",
           headers: {
@@ -302,3 +302,4 @@ function Signup() {
 }
 
 export default Signup;
+

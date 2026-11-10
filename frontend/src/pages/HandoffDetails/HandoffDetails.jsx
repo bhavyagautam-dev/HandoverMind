@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./HandoffDetails.css";
+import API_URL from "../../services/api";
 
 function HandoffDetails() {
   const { handoffId } = useParams();
@@ -26,7 +27,7 @@ function HandoffDetails() {
         }
 
         const response = await fetch(
-          `http://127.0.0.1:8000/api/handoffs/${handoffId}/`,
+          `${API_URL}/handoffs/${handoffId}/`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

@@ -1,8 +1,7 @@
 
 import { useCallback, useEffect, useState } from "react";
+import API_URL from "../../services/api";
 import "./IncomingHandoffInbox.css";
-
-const API_BASE = "http://127.0.0.1:8000/api";
 
 function getAccessToken() {
   return (
@@ -47,7 +46,7 @@ function IncomingHandoffInbox() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/handoffs/inbox/`, {
+      const response = await fetch(`${API_URL}/handoffs/inbox/`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -91,7 +90,7 @@ function IncomingHandoffInbox() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/handoffs/${handoffId}/acknowledge/`,
+        `${API_URL}/handoffs/${handoffId}/acknowledge/`,
         {
           method: "POST",
           headers: {
@@ -203,9 +202,7 @@ function IncomingHandoffInbox() {
             return (
               <article className="inbox-card" key={handoff.id}>
                 <div className="inbox-card-topline">
-                  <span className="inbox-record-label">
-                    PATIENT HANDOFF
-                  </span>
+                  <span className="inbox-record-label">PATIENT HANDOFF</span>
 
                   <span className={`inbox-risk ${risk}`}>
                     {handoff.risk_level || "Low"} Risk
@@ -278,7 +275,8 @@ function IncomingHandoffInbox() {
 
                   <div className="inbox-notes-content">
                     <p>
-                      {handoff.input_text || "Original notes available nahi hain."}
+                      {handoff.input_text ||
+                        "Original notes available nahi hain."}
                     </p>
                   </div>
                 </section>

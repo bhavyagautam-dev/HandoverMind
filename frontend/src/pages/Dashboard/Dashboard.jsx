@@ -1,8 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
-
-const API_URL = "http://127.0.0.1:8000/api/patients/";
+import API_URL from "../../services/api";
 
 function getStoredUser() {
   try {
@@ -45,14 +45,16 @@ function Dashboard() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [menuOpen]);
 
-  // Stop the page behind the menu from scrolling while it is open
+  // Stop background scrolling while mobile menu is open
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
+
     return () => {
       document.body.style.overflow = "";
     };
   }, [menuOpen]);
 
+  // Fetch patients
   useEffect(() => {
     if (!user) {
       navigate("/", { replace: true });
@@ -70,13 +72,15 @@ function Dashboard() {
 
         if (!token) {
           if (!cancelled) {
-            setPatientsError("Login session missing. Please log in again.");
+            setPatientsError(
+              "Login session missing. Please log in again."
+            );
             setPatients([]);
           }
           return;
         }
 
-        const response = await fetch(API_URL, {
+        const response = await fetch(`${API_URL}/patients/`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -99,12 +103,14 @@ function Dashboard() {
         const patientList = Array.isArray(data)
           ? data
           : Array.isArray(data.results)
-            ? data.results
-            : null;
+          ? data.results
+          : null;
 
         if (!patientList) {
           if (!cancelled) {
-            setPatientsError("Unexpected patients response format.");
+            setPatientsError(
+              "Unexpected patients response format."
+            );
             setPatients([]);
           }
           return;
@@ -134,6 +140,7 @@ function Dashboard() {
     };
   }, [user, navigate]);
 
+  // Logout
   const handleLogout = () => {
     const keys = [
       "access",
@@ -177,7 +184,10 @@ function Dashboard() {
         aria-hidden="true"
       />
 
-      <aside id="dashboard-sidebar" className={`sidebar ${menuOpen ? "open" : ""}`}>
+      <aside
+        id="dashboard-sidebar"
+        className={`sidebar ${menuOpen ? "open" : ""}`}
+      >
         <button
           className="sidebar-close"
           onClick={() => setMenuOpen(false)}
@@ -219,19 +229,28 @@ function Dashboard() {
           >
             Handoff History
           </button>
+
           <button
-              className="menu-item"
-              onClick={() => navigate("/incoming-handoffs")}
-            >
-              Incoming Handoff Inbox
-            </button>
-          <button className="menu-item">Risk Alerts</button>
+            className="menu-item"
+            onClick={() => navigate("/incoming-handoffs")}
+          >
+            Incoming Handoff Inbox
+          </button>
+
+          <button className="menu-item">
+            Risk Alerts
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
-          <button className="menu-item">Settings</button>
+          <button className="menu-item">
+            Settings
+          </button>
 
-          <button className="menu-item logout" onClick={handleLogout}>
+          <button
+            className="menu-item logout"
+            onClick={handleLogout}
+          >
             Logout
           </button>
         </div>
@@ -320,10 +339,14 @@ function Dashboard() {
             </div>
 
             <div className="patient-list">
-              {patientsLoading && <p>Loading patients...</p>}
+              {patientsLoading && (
+                <p>Loading patients...</p>
+              )}
 
               {!patientsLoading && patientsError && (
-                <p className="patients-error">{patientsError}</p>
+                <p className="patients-error">
+                  {patientsError}
+                </p>
               )}
 
               {!patientsLoading &&
@@ -374,6 +397,7 @@ function Dashboard() {
                 <h2>Risk Alerts</h2>
                 <p>Patients requiring attention</p>
               </div>
+
               <button>View All</button>
             </div>
 

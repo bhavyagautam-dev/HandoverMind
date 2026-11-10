@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./PatientAssignments.css";
 
 function PatientAssignments() {
@@ -32,10 +33,10 @@ function PatientAssignments() {
 
     try {
       const [patientResponse, nurseResponse] = await Promise.all([
-        fetch("http://127.0.0.1:8000/api/patients/", {
+        fetch(`${API_URL}/patients/`, {
           headers: getHeaders(),
         }),
-        fetch("http://127.0.0.1:8000/api/nurses/", {
+        fetch(`${API_URL}/nurses/`, {
           headers: getHeaders(),
         }),
       ]);
@@ -128,7 +129,7 @@ function PatientAssignments() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/patients/${patient.id}/`,
+        `${API_URL}/patients/${patient.id}/`,
         {
           method: "PATCH",
           headers: getHeaders(),
@@ -180,7 +181,7 @@ function PatientAssignments() {
           className="pa-back-button"
           onClick={() => navigate("/manager")}
         >
-          ← Dashboard
+          â† Dashboard
         </button>
       </header>
 
@@ -259,7 +260,7 @@ function PatientAssignments() {
                   <tr key={patient.id}>
                     <td>{patient.patient_id}</td>
                     <td>{patient.name}</td>
-                    <td>{patient.room_number || "—"}</td>
+                    <td>{patient.room_number || "â€”"}</td>
                     <td>
                       <select
                         value={assignments[patient.id] ?? ""}

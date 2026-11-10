@@ -1,9 +1,9 @@
-
+﻿
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./PatientManagement.css";
 
-const API_URL = "http://127.0.0.1:8000/api/patients/";
 
 const EMPTY_FORM = {
   name: "",
@@ -314,7 +314,7 @@ function PatientManagement() {
   // ==========================================
 
   const formatDate = (date) => {
-    if (!date) return "—";
+    if (!date) return "â€”";
 
     // Avoid timezone shifting for date-only values.
     const parsedDate = new Date(`${date}T00:00:00`);
@@ -478,7 +478,7 @@ function PatientManagement() {
               aria-label="Close form"
               onClick={resetForm}
             >
-              ×
+              Ã—
             </button>
           </div>
 
@@ -709,7 +709,7 @@ function PatientManagement() {
                     {/* AUTO PATIENT ID */}
 
                     <td>
-                      {patient.patient_id || "—"}
+                      {patient.patient_id || "â€”"}
                     </td>
 
                     {/* AUTO ADMISSION DATE */}
@@ -721,13 +721,13 @@ function PatientManagement() {
                     {/* ROOM */}
 
                     <td>
-                      {patient.room_number || "—"}
+                      {patient.room_number || "â€”"}
                     </td>
 
                     {/* DIAGNOSIS */}
 
                     <td className="pm-diagnosis">
-                      {patient.diagnosis || "—"}
+                      {patient.diagnosis || "â€”"}
                     </td>
 
                     {/* STATUS */}
@@ -790,3 +790,4 @@ function PatientManagement() {
 }
 
 export default PatientManagement;
+

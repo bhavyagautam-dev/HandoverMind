@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./HandoffHistory.css";
-
+import API_URL from "../../services/api";
 function HandoffHistory() {
   const navigate = useNavigate();
 
@@ -29,7 +29,7 @@ function HandoffHistory() {
         }
 
         const response = await fetch(
-          "http://127.0.0.1:8000/api/handoffs/",
+            `${API_URL}/handoffs/`,
           {
             method: "GET",
             headers: {

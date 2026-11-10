@@ -28,3 +28,17 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+
+# Django environment and database files
+.env
+*.sqlite3
+*.sqlite3-journal
+
+# Python virtual environments
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/

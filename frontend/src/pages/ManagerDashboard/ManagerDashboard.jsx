@@ -1,39 +1,40 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./ManagerDashboard.css";
 
 const navItems = [
-  { icon: "▦", label: "Dashboard", path: "/manager" },
-  { icon: "🛏️", label: "Patient Management", path: "/patient-management" },
-  { icon: "🩺", label: "Nurse Management", path: "/manager/nurses" },
-  { icon: "👥", label: "Staff Management", path: "/manager/staff" },
-  { icon: "📋", label: "Patient Assignments", path: "/manager/assignments" },
+  { icon: "â–¦", label: "Dashboard", path: "/manager" },
+  { icon: "ðŸ›ï¸", label: "Patient Management", path: "/patient-management" },
+  { icon: "ðŸ©º", label: "Nurse Management", path: "/manager/nurses" },
+  { icon: "ðŸ‘¥", label: "Staff Management", path: "/manager/staff" },
+  { icon: "ðŸ“‹", label: "Patient Assignments", path: "/manager/assignments" },
 ];
 
 const quickActions = [
   {
-    icon: "🛏️",
+    icon: "ðŸ›ï¸",
     title: "Patient management",
     text: "Add, edit or discharge patient records.",
     path: "/patient-management",
     tone: "blue",
   },
   {
-    icon: "🩺",
+    icon: "ðŸ©º",
     title: "Nurse accounts",
     text: "Add, edit or review nurse accounts.",
     path: "/manager/nurses",
     tone: "green",
   },
   {
-    icon: "👥",
+    icon: "ðŸ‘¥",
     title: "Staff accounts",
     text: "Manage non-medical staff members.",
     path: "/manager/staff",
     tone: "purple",
   },
   {
-    icon: "📋",
+    icon: "ðŸ“‹",
     title: "Assignments",
     text: "Assign patients to available nurses.",
     path: "/manager/assignments",
@@ -123,9 +124,9 @@ function ManagerDashboard() {
       try {
         const [patientsResponse, nursesResponse, staffResponse] =
           await Promise.all([
-            fetch("http://127.0.0.1:8000/api/patients/", { headers }),
-            fetch("http://127.0.0.1:8000/api/nurses/", { headers }),
-            fetch("http://127.0.0.1:8000/api/staff/", { headers }),
+            fetch(`${API_URL}/patients/`, { headers }),
+            fetch(`${API_URL}/nurses/`, { headers }),
+            fetch(`${API_URL}/staff/`, { headers }),
           ]);
 
         const [patientsData, nursesData, staffData] = await Promise.all([
@@ -218,28 +219,28 @@ function ManagerDashboard() {
 
   const statCards = [
     {
-      icon: "🛏️",
+      icon: "ðŸ›ï¸",
       label: "Total Patients",
       value: stats.totalPatients,
       note: `${stats.activePatients} currently active`,
       tone: "blue",
     },
     {
-      icon: "🩺",
+      icon: "ðŸ©º",
       label: "Active Nurses",
       value: stats.activeNurses,
       note: "Registered nurse accounts",
       tone: "green",
     },
     {
-      icon: "👥",
+      icon: "ðŸ‘¥",
       label: "Non-medical Staff",
       value: stats.nonMedicalStaff,
       note: "Support team members",
       tone: "purple",
     },
     {
-      icon: "📋",
+      icon: "ðŸ“‹",
       label: "Pending Assignments",
       value: stats.pendingAssignments,
       note:
@@ -267,11 +268,11 @@ function ManagerDashboard() {
           onClick={() => setMenuOpen(false)}
           aria-label="Close menu"
         >
-          ✕
+          âœ•
         </button>
 
         <div className="manager-brand">
-          <span className="manager-brand-icon">✚</span>
+          <span className="manager-brand-icon">âœš</span>
           <div>
             <h2>
               Handover<span>Mind</span>
@@ -307,7 +308,7 @@ function ManagerDashboard() {
           </div>
 
           <button className="manager-logout" onClick={handleLogout}>
-            <span>↪</span> Logout
+            <span>â†ª</span> Logout
           </button>
         </div>
       </aside>
@@ -346,7 +347,7 @@ function ManagerDashboard() {
 
         {error && (
           <div className="manager-error" role="alert">
-            <span>⚠️</span>
+            <span>âš ï¸</span>
             {error}
           </div>
         )}
@@ -360,7 +361,7 @@ function ManagerDashboard() {
               <span className="manager-hero-dot" />
               WELCOME BACK
             </span>
-            <h2>Hello, {user.username} 👋</h2>
+            <h2>Hello, {user.username} ðŸ‘‹</h2>
             <p>
               Manage patients, nurse accounts, staff accounts and patient
               assignments from one place.
@@ -370,26 +371,26 @@ function ManagerDashboard() {
               className="manager-hero-button"
               onClick={() => navigate("/manager/assignments")}
             >
-              Manage assignments <span>→</span>
+              Manage assignments <span>â†’</span>
             </button>
           </div>
 
           <div className="manager-hero-symbol" aria-hidden="true">
             <div className="manager-hero-ring" />
-            <div className="manager-hero-center">✚</div>
+            <div className="manager-hero-center">âœš</div>
           </div>
         </section>
 
         {!loading && !error && stats.pendingAssignments > 0 && (
           <div className="manager-alert">
-            <span className="manager-alert-icon">🔔</span>
+            <span className="manager-alert-icon">ðŸ””</span>
             <p>
               <strong>{stats.pendingAssignments}</strong> active{" "}
               {stats.pendingAssignments === 1 ? "patient is" : "patients are"}{" "}
               waiting for a nurse assignment.
             </p>
             <button onClick={() => navigate("/manager/assignments")}>
-              Assign now →
+              Assign now â†’
             </button>
           </div>
         )}
@@ -448,7 +449,7 @@ function ManagerDashboard() {
           </article>
 
           <article className="manager-panel manager-panel-note">
-            <span className="manager-note-icon">✦</span>
+            <span className="manager-note-icon">âœ¦</span>
             <h3>Keep handoffs smooth</h3>
             <p>
               When every active patient has an assigned nurse, shift handoffs
@@ -478,7 +479,7 @@ function ManagerDashboard() {
                 </span>
                 <h4>{action.title}</h4>
                 <p>{action.text}</p>
-                <span className="manager-quick-arrow">↗</span>
+                <span className="manager-quick-arrow">â†—</span>
               </button>
             ))}
           </div>
