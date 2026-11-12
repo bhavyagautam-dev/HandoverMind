@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API_URL from "../../services/api";
 import "./NewHandoff.css";
@@ -338,7 +338,7 @@ function NewHandoff() {
           className="back-button"
           onClick={() => navigate("/dashboard")}
         >
-          <span aria-hidden="true">â†</span>
+          <span aria-hidden="true">←</span>
           Back to Dashboard
         </button>
 
@@ -405,7 +405,7 @@ function NewHandoff() {
 
               {patients.map((patient) => (
                 <option key={patient.id} value={String(patient.id)}>
-                  {patient.name} â€” Room {patient.room_number || "N/A"}
+                  {patient.name} —” Room {patient.room_number || "N/A"}
                 </option>
               ))}
             </select>
@@ -432,13 +432,13 @@ function NewHandoff() {
                 <h3>{currentPatient.name}</h3>
                 <p>
                   ID: {currentPatient.patient_id || currentPatient.id}
-                  {" Â· "}
+                  {" · "}
                   Room: {currentPatient.room_number || "N/A"}
                 </p>
               </div>
 
               <span className="selected-check" aria-label="Selected">
-                âœ“
+                ✓“
               </span>
             </section>
           )}
@@ -479,7 +479,7 @@ function NewHandoff() {
 
           <div className="voice-section">
             <div className="voice-icon" aria-hidden="true">
-              ðŸŽ™
+              Mic
             </div>
 
             <div className="voice-description">
@@ -508,7 +508,7 @@ function NewHandoff() {
 
           {message && (
             <div className="handoff-success" role="status">
-              <span aria-hidden="true">âœ“</span>
+              <span aria-hidden="true">✓“</span>
               {message}
             </div>
           )}
@@ -538,7 +538,7 @@ function NewHandoff() {
 
               <div className="sbar-section">
                 <label htmlFor="reviewed-risk">
-                  AI-suggested risk level â€” verify before saving
+                  AI-suggested risk level —” verify before saving
                 </label>
 
                 <select
@@ -613,7 +613,7 @@ function NewHandoff() {
               }
             >
               {generating ? "Generating SBAR..." : "Prepare Handoff"}
-              <span aria-hidden="true">â†’</span>
+              <span aria-hidden="true">←’</span>
             </button>
           </div>
         </form>
@@ -632,11 +632,11 @@ function NewHandoff() {
           <div className="guidance-divider" />
 
           <ul className="guidance-list">
-            <li><span>âœ“</span> Current patient condition</li>
-            <li><span>âœ“</span> Relevant observations and vital signs</li>
-            <li><span>âœ“</span> Medications and ongoing treatment</li>
-            <li><span>âœ“</span> Pending tasks and follow-up</li>
-            <li><span>âœ“</span> Important risks and concerns</li>
+            <li><span>✓“</span> Current patient condition</li>
+            <li><span>✓“</span> Relevant observations and vital signs</li>
+            <li><span>✓“</span> Medications and ongoing treatment</li>
+            <li><span>✓“</span> Pending tasks and follow-up</li>
+            <li><span>✓“</span> Important risks and concerns</li>
           </ul>
 
           <div className="guidance-reminder">
@@ -651,7 +651,7 @@ function NewHandoff() {
       </div>
 
       <footer className="handoff-footer">
-        HandoverMind Â· Supporting safer nursing shift transitions
+        HandoverMind · Supporting safer nursing shift transitions
       </footer>
     </main>
   );

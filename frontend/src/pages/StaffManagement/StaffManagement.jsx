@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../../services/api";
 import "./StaffManagement.css";
@@ -195,7 +195,7 @@ function StaffManagement() {
           className="sm-back-button"
           onClick={() => navigate("/manager")}
         >
-          â† Dashboard
+          ← Dashboard
         </button>
       </header>
 

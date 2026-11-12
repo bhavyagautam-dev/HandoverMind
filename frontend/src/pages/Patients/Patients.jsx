@@ -1,4 +1,4 @@
-﻿
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API_URL from "../../services/api";
@@ -63,7 +63,7 @@ function Patients() {
         }
 
         const response = await fetch(
-          `${API_URL}${encodeURIComponent(patientId)}/`,
+          API_URL + "/patients/" + encodeURIComponent(patientId) + "/",
           {
             method: "GET",
             headers: {

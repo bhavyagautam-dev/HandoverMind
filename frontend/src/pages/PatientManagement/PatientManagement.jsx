@@ -1,4 +1,4 @@
-﻿
+
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../../services/api";
@@ -70,7 +70,7 @@ function PatientManagement() {
         return;
       }
 
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_URL + "/patients/", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -188,8 +188,8 @@ function PatientManagement() {
       const isEditing = Boolean(editingPatient);
 
       const url = isEditing
-        ? `${API_URL}${editingPatient.id}/`
-        : API_URL;
+        ? API_URL + "/patients/" + editingPatient.id + "/"
+        : API_URL + "/patients/";
 
       // Patient ID and Admission Date are NOT sent.
       // Backend generates both automatically.
@@ -277,7 +277,7 @@ function PatientManagement() {
         return;
       }
 
-      const response = await fetch(`${API_URL}${patient.id}/`, {
+      const response = await fetch(API_URL + "/patients/" + patient.id + "/", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

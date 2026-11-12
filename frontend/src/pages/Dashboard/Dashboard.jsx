@@ -211,13 +211,6 @@ function Dashboard() {
 
           <button
             className="menu-item"
-            onClick={() => navigate("/patients")}
-          >
-            Patients
-          </button>
-
-          <button
-            className="menu-item"
             onClick={() => navigate("/new-handoff")}
           >
             New Handoff
