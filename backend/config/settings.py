@@ -130,14 +130,21 @@ STORAGES = {
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # CORS
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").strip()
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173"
+).strip().strip("[]").split("](")[0].replace("[", "").replace(")", "")
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in FRONTEND_URL.split(",")
     if origin.strip()
 ]
-
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in FRONTEND_URL.split(",")
+    if origin.strip()
+]
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
