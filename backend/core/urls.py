@@ -12,17 +12,34 @@ from .views import (
     IncomingHandoffInboxView,
     AcknowledgeHandoffView,
     HospitalRegistrationView,
+    SendEmailOTPView,
     VerifyEmailOTPView,
     ResendEmailOTPView,
 )
 
 urlpatterns = [
-    #registretion
+    # Hospital registration
     path(
-    "auth/hospital-register/",
-    HospitalRegistrationView.as_view(),
-    name="hospital-register",
+        "auth/send-otp/",
+        SendEmailOTPView.as_view(),
+        name="send-email-otp",
     ),
+    path(
+        "auth/verify-otp/",
+        VerifyEmailOTPView.as_view(),
+        name="verify-email-otp",
+    ),
+    path(
+        "auth/resend-otp/",
+        ResendEmailOTPView.as_view(),
+        name="resend-email-otp",
+    ),
+    path(
+        "auth/hospital-register/",
+        HospitalRegistrationView.as_view(),
+        name="hospital-register",
+    ),
+
     # Patients
     path(
         "patients/",
@@ -84,16 +101,5 @@ urlpatterns = [
         "staff/<int:staff_id>/",
         StaffManagementView.as_view(),
         name="staff-detail",
-    ),
-    #OTP
-    path(
-        "auth/verify-otp/",
-        VerifyEmailOTPView.as_view(),
-        name="verify-email-otp",
-    ),
-    path(
-        "auth/resend-otp/",
-        ResendEmailOTPView.as_view(),
-        name="resend-email-otp",
     ),
 ]

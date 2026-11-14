@@ -1,6 +1,7 @@
 
 import uuid
 import hashlib
+import hmac
 
 from django.db import models
 from django.db.models import Q
@@ -269,7 +270,50 @@ class EmailOTP(models.Model):
             otp.encode()
         ).hexdigest()
 
-        return self.otp_hash == otp_hash
+        return hmac.compare_digest(
+            self.otp_hash,
+            otp_hash,
+        )
 
     def __str__(self):
         return f"Email OTP - {self.user.username}"
+
+
+class EmailVerification(models.Model):
+
+    email = models.EmailField(unique=True)
+
+    otp_hash = models.CharField(max_length=64)
+
+    expires_at = models.DateTimeField()
+
+    attempts = models.PositiveIntegerField(default=0)
+
+    last_sent_at = models.DateTimeField(default=timezone.now)
+
+    is_verified = models.BooleanField(default=False)
+
+    verification_token_hash = models.CharField(
+        max_length=64,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def set_otp(self, otp):
+        self.otp_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+    def verify_otp(self, otp):
+        otp_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+        return hmac.compare_digest(
+            self.otp_hash,
+            otp_hash,
+        )
+
+    def __str__(self):
+        return f"Email Verification - {self.email}"

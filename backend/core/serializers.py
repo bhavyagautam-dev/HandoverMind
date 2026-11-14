@@ -259,6 +259,11 @@ class HospitalRegistrationSerializer(serializers.Serializer):
 
     email = serializers.EmailField()
 
+    verification_token = serializers.CharField(
+        write_only=True,
+        required=True
+    )
+
     first_name = serializers.CharField(
         max_length=150
     )
@@ -283,6 +288,8 @@ class HospitalRegistrationSerializer(serializers.Serializer):
         return value
 
     def validate_email(self, value):
+
+        value = value.strip().lower()
 
         if User.objects.filter(
             email__iexact=value
@@ -332,6 +339,11 @@ class HospitalRegistrationSerializer(serializers.Serializer):
 
         password = validated_data.pop("password")
 
+        # The token has already been validated by HospitalRegistrationView.
+        validated_data.pop("verification_token")
+
+        validated_data["email"] = validated_data["email"].strip().lower()
+
         hospital = Hospital.objects.create(
             name=hospital_name,
             city=city,
@@ -339,7 +351,7 @@ class HospitalRegistrationSerializer(serializers.Serializer):
 
         manager = User.objects.create_user(
             password=password,
-            is_active=False,
+            is_active=True,
             **validated_data
         )
 
@@ -353,7 +365,7 @@ class HospitalRegistrationSerializer(serializers.Serializer):
             user=manager,
             hospital=hospital,
             role="Manager",
-            email_verified=False,
+            email_verified=True,
         )
 
         return {

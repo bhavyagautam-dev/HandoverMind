@@ -115,15 +115,11 @@ function Signup() {
         throw new Error(errors || "Registration failed.");
       }
 
-      setMessage(
-        "Hospital registered successfully! Redirecting to login..."
-      );
-
-      // Registration does not automatically log in the Manager.
-      navigate("/login", {
+      setMessage("Registration successful! Redirecting to email verification...");
+      navigate("/verify-otp", {
         replace: true,
         state: {
-          registrationSuccess: true,
+          email: formData.email.trim(),
         },
       });
 
