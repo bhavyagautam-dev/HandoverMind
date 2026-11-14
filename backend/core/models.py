@@ -1,15 +1,12 @@
 
 import uuid
+import hashlib
 
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-
-# ==========================================
-# HOSPITAL MODEL
-# ==========================================
 
 class Hospital(models.Model):
 
@@ -33,10 +30,6 @@ class Hospital(models.Model):
     def __str__(self):
         return f"{self.name} - {self.city}"
 
-
-# ==========================================
-# USER PROFILE MODEL
-# ==========================================
 
 class UserProfile(models.Model):
 
@@ -64,6 +57,8 @@ class UserProfile(models.Model):
         default="Nurse",
     )
 
+    email_verified = models.BooleanField(default=False)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -80,10 +75,6 @@ class UserProfile(models.Model):
         )
 
 
-# ==========================================
-# PATIENT MODEL
-# ==========================================
-
 class Patient(models.Model):
 
     GENDER_CHOICES = [
@@ -97,7 +88,6 @@ class Patient(models.Model):
         ("Discharged", "Discharged"),
     ]
 
-    # Automatically generated Patient ID
     patient_id = models.CharField(
         max_length=20,
         editable=False,
@@ -118,7 +108,6 @@ class Patient(models.Model):
 
     allergies = models.TextField(blank=True)
 
-    # Automatically generated Admission Date
     admission_date = models.DateField(
         default=timezone.localdate,
         editable=False,
@@ -165,13 +154,11 @@ class Patient(models.Model):
 
     def save(self, *args, **kwargs):
 
-        # Generate Patient ID automatically
         if not self.patient_id:
             self.patient_id = (
                 f"PT-{uuid.uuid4().hex[:8].upper()}"
             )
 
-        # Set Admission Date automatically
         if not self.admission_date:
             self.admission_date = timezone.localdate()
 
@@ -180,10 +167,6 @@ class Patient(models.Model):
     def __str__(self):
         return f"{self.patient_id} - {self.name}"
 
-
-# ==========================================
-# HANDOFF MODEL
-# ==========================================
 
 class Handoff(models.Model):
 
@@ -254,3 +237,39 @@ class Handoff(models.Model):
             f"{self.patient.name} - "
             f"{self.nurse.username}"
         )
+
+
+class EmailOTP(models.Model):
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="email_otp",
+    )
+
+    otp_hash = models.CharField(max_length=64)
+
+    expires_at = models.DateTimeField()
+
+    attempts = models.PositiveIntegerField(default=0)
+
+    last_sent_at = models.DateTimeField(auto_now_add=True)
+
+    is_verified = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def set_otp(self, otp):
+        self.otp_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+    def verify_otp(self, otp):
+        otp_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+        return self.otp_hash == otp_hash
+
+    def __str__(self):
+        return f"Email OTP - {self.user.username}"

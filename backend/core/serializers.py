@@ -14,10 +14,6 @@ from .models import (
 )
 
 
-
-# PATIENT SERIALIZER
-
-
 class PatientSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -82,11 +78,8 @@ class PatientSerializer(serializers.ModelSerializer):
         return nurse
 
 
-# NURSE CREATE SERIALIZER
-
-
-
 class NurseCreateSerializer(serializers.ModelSerializer):
+
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
@@ -112,9 +105,6 @@ class NurseCreateSerializer(serializers.ModelSerializer):
         )
 
         return nurse
-
-
-# STAFF CREATE SERIALIZER
 
 
 class StaffCreateSerializer(serializers.ModelSerializer):
@@ -162,10 +152,6 @@ class StaffCreateSerializer(serializers.ModelSerializer):
 
         return staff
 
-
-# ==========================================
-# HANDOFF SERIALIZER
-# ==========================================
 
 class HandoffSerializer(serializers.ModelSerializer):
 
@@ -253,10 +239,6 @@ class HandoffSerializer(serializers.ModelSerializer):
             )
 
         return value
-
-
-
-# HOSPITAL REGISTRATION SERIALIZER
 
 
 class HospitalRegistrationSerializer(serializers.Serializer):
@@ -357,6 +339,7 @@ class HospitalRegistrationSerializer(serializers.Serializer):
 
         manager = User.objects.create_user(
             password=password,
+            is_active=False,
             **validated_data
         )
 
@@ -370,6 +353,7 @@ class HospitalRegistrationSerializer(serializers.Serializer):
             user=manager,
             hospital=hospital,
             role="Manager",
+            email_verified=False,
         )
 
         return {

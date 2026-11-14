@@ -4,7 +4,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.db.models import Count, Q
-
+from .email_service import generate_and_send_otp
+from .models import EmailOTP
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -13,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Patient, Handoff, Hospital, UserProfile
+from .models import Patient, Handoff, Hospital, UserProfile, EmailOTP
 
 from .serializers import (
     PatientSerializer,
@@ -29,10 +30,7 @@ from .ai_service import generate_sbar_summary
 
 User = get_user_model()
 
-
-# ==========================================
 # COMMON HELPERS
-# ==========================================
 
 def get_user_hospital(user):
     try:
@@ -52,9 +50,7 @@ def hospital_access_denied():
     )
 
 
-# ==========================================
 # JWT LOGIN
-# ==========================================
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
@@ -119,9 +115,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-# ==========================================
+
 # HOSPITAL REGISTRATION
-# ==========================================
+
 
 class HospitalRegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -131,37 +127,220 @@ class HospitalRegistrationView(APIView):
             data=request.data
         )
 
-        if serializer.is_valid():
-            result = serializer.save()
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            hospital = result["hospital"]
-            manager = result["manager"]
+        try:
+            with transaction.atomic():
+                result = serializer.save()
+
+                hospital = result["hospital"]
+                manager = result["manager"]
+
+                generate_and_send_otp(manager)
 
             return Response(
                 {
-                    "message": "Hospital registered successfully.",
-                    "hospital": {
-                        "id": hospital.id,
-                        "name": hospital.name,
-                        "city": hospital.city,
-                    },
-                    "manager": {
-                        "id": manager.id,
-                        "username": manager.username,
-                        "email": manager.email,
-                        "first_name": manager.first_name,
-                        "last_name": manager.last_name,
-                        "role": "Manager",
-                    },
+                    "message": (
+                        "Registration successful. "
+                        "Please verify your email using the OTP sent to your inbox."
+                    ),
+                    "email": manager.email,
+                    "user_id": manager.id,
+                    "otp_expiry_minutes": 5,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        except Exception:
+            import logging
+            logging.exception("Hospital registration email failed")
+
+            return Response(
+                {
+                    "detail": (
+                        "Registration could not be completed. "
+                        "Please try again."
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VerifyEmailOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email", "").strip()
+        otp = request.data.get("otp", "").strip()
+
+        if not email or not otp:
+            return Response(
+                {"detail": "Email and OTP are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(otp) != 6 or not otp.isdigit():
+            return Response(
+                {"detail": "Enter a valid 6-digit OTP."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Invalid email or OTP."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with transaction.atomic():
+                otp_record = EmailOTP.objects.select_for_update().get(
+                    user=user
+                )
+
+                if otp_record.is_verified or user.is_active:
+                    return Response(
+                        {"detail": "Email is already verified."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if otp_record.attempts >= 5:
+                    return Response(
+                        {
+                            "detail": (
+                                "Maximum OTP attempts exceeded. "
+                                "Please request a new OTP."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if timezone.now() > otp_record.expires_at:
+                    return Response(
+                        {
+                            "detail": (
+                                "OTP has expired. Please request a new OTP."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if not otp_record.verify_otp(otp):
+                    otp_record.attempts += 1
+
+                    if otp_record.attempts >= 5:
+                        otp_record.expires_at = timezone.now()
+
+                    otp_record.save(
+                        update_fields=["attempts", "expires_at"]
+                    )
+
+                    return Response(
+                        {
+                            "detail": "Incorrect OTP.",
+                            "remaining_attempts": max(
+                                0, 5 - otp_record.attempts
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                profile = UserProfile.objects.get(user=user)
+                profile.email_verified = True
+                profile.save(update_fields=["email_verified"])
+
+                user.is_active = True
+                user.save(update_fields=["is_active"])
+
+                otp_record.is_verified = True
+                otp_record.save(update_fields=["is_verified"])
+                otp_record.delete()
+
+            return Response(
+                {
+                    "message": (
+                        "Email verified successfully. "
+                        "Your account is now active. You can log in."
+                    )
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except EmailOTP.DoesNotExist:
+            return Response(
+                {"detail": "OTP not found. Please request a new OTP."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except UserProfile.DoesNotExist:
+            return Response(
+                {"detail": "User profile not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class ResendEmailOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email", "").strip()
+
+        if not email:
+            return Response(
+                {"detail": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Account not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user.is_active:
+            return Response(
+                {"detail": "Email is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            generate_and_send_otp(user)
+
+            return Response(
+                {
+                    "message": "A new OTP has been sent to your email.",
+                    "otp_expiry_minutes": 5,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        except Exception:
+            import logging
+            logging.exception("OTP resend failed")
+
+            return Response(
+                {"detail": "Unable to send OTP. Please try again."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 # ==========================================
 # ROLE TEST APIs
@@ -187,9 +366,7 @@ class NurseTestView(APIView):
         })
 
 
-# ==========================================
 # PATIENT LIST AND CREATE
-# ==========================================
 
 class PatientListCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -271,9 +448,7 @@ class PatientListCreateView(APIView):
         )
 
 
-# ==========================================
 # NURSE MANAGEMENT
-# ==========================================
 
 class NurseManagementView(APIView):
     permission_classes = [IsAuthenticated]
@@ -397,9 +572,7 @@ class NurseManagementView(APIView):
         )
 
 
-# ==========================================
 # PATIENT DETAILS, EDIT AND DISCHARGE
-# ==========================================
 
 class PatientDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -552,9 +725,8 @@ class PatientDetailView(APIView):
         )
 
 
-# ==========================================
+# 
 # NURSE REASSIGNMENT
-# ==========================================
 
 def select_next_nurse(current_nurse, patient):
 
@@ -583,9 +755,7 @@ def select_next_nurse(current_nurse, patient):
     return candidates.first()
 
 
-# ==========================================
 # HANDOFF LIST AND CREATE
-# ==========================================
 
 class HandoffListCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -717,9 +887,7 @@ class HandoffListCreateView(APIView):
         )
 
 
-# ==========================================
 # INCOMING HANDOFF INBOX
-# ==========================================
 
 class IncomingHandoffInboxView(APIView):
     permission_classes = [IsAuthenticated]
@@ -749,9 +917,7 @@ class IncomingHandoffInboxView(APIView):
         )
 
 
-# ==========================================
 # ACKNOWLEDGE HANDOFF
-# ==========================================
 
 class AcknowledgeHandoffView(APIView):
     permission_classes = [IsAuthenticated, IsNurse]
@@ -802,9 +968,7 @@ class AcknowledgeHandoffView(APIView):
         )
 
 
-# ==========================================
 # GENERATE SBAR
-# ==========================================
 
 class GenerateSBARView(APIView):
     permission_classes = [IsAuthenticated]
@@ -877,9 +1041,8 @@ class GenerateSBARView(APIView):
             )
 
 
-# ==========================================
+ 
 # HANDOFF DETAILS
-# ==========================================
 
 class HandoffDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -923,9 +1086,7 @@ class HandoffDetailView(APIView):
         )
 
 
-# ==========================================
 # STAFF MANAGEMENT
-# ==========================================
 
 class StaffManagementView(APIView):
     permission_classes = [IsAuthenticated]

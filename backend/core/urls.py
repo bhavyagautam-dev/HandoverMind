@@ -12,6 +12,8 @@ from .views import (
     IncomingHandoffInboxView,
     AcknowledgeHandoffView,
     HospitalRegistrationView,
+    VerifyEmailOTPView,
+    ResendEmailOTPView,
 )
 
 urlpatterns = [
@@ -82,5 +84,16 @@ urlpatterns = [
         "staff/<int:staff_id>/",
         StaffManagementView.as_view(),
         name="staff-detail",
+    ),
+    #OTP
+    path(
+        "auth/verify-otp/",
+        VerifyEmailOTPView.as_view(),
+        name="verify-email-otp",
+    ),
+    path(
+        "auth/resend-otp/",
+        ResendEmailOTPView.as_view(),
+        name="resend-email-otp",
     ),
 ]
