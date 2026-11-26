@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home/Home";
 import About from "./pages/About/About";
@@ -14,6 +15,10 @@ import NurseManagement from "./pages/NurseManagement/NurseManagement";
 import StaffManagement from "./pages/StaffManagement/StaffManagement";
 import PatientAssignments from "./pages/PatientAssignments/PatientAssignments";
 import PatientManagement from "./pages/PatientManagement/PatientManagement";
+import NonStaffDashboard from "./pages/non-staff-dashboard/non-staff-dashboard";
+
+// Super Admin Dashboard
+import SuperDashboard from "./pages/superdashboard/superdashboard.jsx";
 
 function App() {
   return (
@@ -23,13 +28,20 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/staff" element={<NonStaffDashboard />} />
+
+        {/* Super Admin Dashboard */}
+        <Route path="/super-admin" element={<SuperDashboard />} />
+
         <Route path="/patients" element={<Patients />} />
         <Route path="/patients/:patientId" element={<Patients />} />
         <Route path="/new-handoff" element={<NewHandoff />} />
         <Route path="/handoff-history" element={<HandoffHistory />} />
         <Route path="/incoming-handoffs" element={<IncomingHandoffInbox />} />
         <Route path="/handoff-details/:handoffId" element={<HandoffDetails />} />
+
         <Route path="/manager" element={<ManagerDashboard />} />
         <Route path="/manager/nurses" element={<NurseManagement />} />
         <Route path="/manager/staff" element={<StaffManagement />} />
