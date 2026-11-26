@@ -81,7 +81,9 @@ function Login() {
       // Redirect according to the user's role
       const role = data.user?.role;
 
-      if (role === "Manager" || role === "Admin") {
+      if (role === "SuperAdmin") {
+        navigate("/super-admin", { replace: true });
+      } else if (role === "Manager" || role === "Admin") {
         navigate("/manager", { replace: true });
       } else if (role === "Nurse") {
         navigate("/dashboard", { replace: true });

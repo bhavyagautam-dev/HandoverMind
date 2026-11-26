@@ -11,11 +11,49 @@ from django.utils import timezone
 
 class Hospital(models.Model):
 
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+        ("SUSPENDED", "Suspended"),
+    ]
+
     name = models.CharField(max_length=200)
 
     city = models.CharField(
         max_length=100,
         blank=True
+    )
+
+    # Existing hospitals remain approved.
+    # New registrations will explicitly use PENDING.
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="APPROVED",
+    )
+
+    rejection_reason = models.TextField(blank=True)
+
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hospital_reviews",
+    )
+
+    # Archive instead of permanently deleting hospital data.
+    is_archived = models.BooleanField(default=False)
+
+    archived_at = models.DateTimeField(
+        null=True,
+        blank=True,
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

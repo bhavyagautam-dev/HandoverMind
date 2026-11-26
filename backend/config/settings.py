@@ -162,10 +162,9 @@ CSRF_TRUSTED_ORIGINS = [
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.HospitalApprovalJWTAuthentication",
     ),
 }
-
 # JWT
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),

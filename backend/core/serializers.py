@@ -339,16 +339,22 @@ class HospitalRegistrationSerializer(serializers.Serializer):
 
         password = validated_data.pop("password")
 
-        # The token has already been validated by HospitalRegistrationView.
+        # Verification token is validated by HospitalRegistrationView.
         validated_data.pop("verification_token")
 
-        validated_data["email"] = validated_data["email"].strip().lower()
+        validated_data["email"] = (
+            validated_data["email"].strip().lower()
+        )
 
+        # New hospitals must wait for Super Admin approval.
         hospital = Hospital.objects.create(
             name=hospital_name,
             city=city,
+            status="PENDING",
         )
 
+        # Manager account is created but login will be blocked
+        # until the hospital receives approval.
         manager = User.objects.create_user(
             password=password,
             is_active=True,

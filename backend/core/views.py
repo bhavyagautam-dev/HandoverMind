@@ -18,7 +18,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import Patient, Handoff, Hospital, UserProfile
-
+from rest_framework.exceptions import AuthenticationFailed
 from .serializers import (
     PatientSerializer,
     HandoffSerializer,
@@ -27,7 +27,7 @@ from .serializers import (
     HospitalRegistrationSerializer,
 )
 
-from .permissions import IsAdmin, IsNurse
+from .permissions import IsAdmin, IsNurse, IsSuperAdmin
 from .ai_service import generate_sbar_summary
 
 
@@ -55,13 +55,16 @@ def hospital_access_denied():
 
 # JWT LOGIN
 
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
 
-        if has_role(user, "Manager"):
+        if user.is_superuser:
+            role = "SuperAdmin"
+        elif has_role(user, "Manager"):
             role = "Manager"
         elif has_role(user, "Non-medical Staff"):
             role = "Non-medical Staff"
@@ -74,6 +77,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         token["role"] = role
         token["username"] = user.username
+        token["is_superuser"] = user.is_superuser
 
         hospital = get_user_hospital(user)
 
@@ -89,7 +93,36 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user = self.user
         hospital = get_user_hospital(user)
 
-        if has_role(user, "Manager"):
+        # Super Admin bypasses hospital approval checks.
+        if not user.is_superuser and hospital:
+
+            if hospital.is_archived:
+                raise AuthenticationFailed(
+                    "This hospital account has been archived."
+                )
+
+            if hospital.status == "PENDING":
+                raise AuthenticationFailed(
+                    "Your hospital registration is awaiting Super Admin approval."
+                )
+
+            if hospital.status == "REJECTED":
+                message = "Your hospital registration has been rejected."
+
+                if hospital.rejection_reason:
+                    message += f" Reason: {hospital.rejection_reason}"
+
+                raise AuthenticationFailed(message)
+
+            if hospital.status == "SUSPENDED":
+                raise AuthenticationFailed(
+                    "Your hospital account has been suspended. "
+                    "Please contact support."
+                )
+
+        if user.is_superuser:
+            role = "SuperAdmin"
+        elif has_role(user, "Manager"):
             role = "Manager"
         elif has_role(user, "Non-medical Staff"):
             role = "Non-medical Staff"
@@ -107,12 +140,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "role": role,
+            "is_superuser": user.is_superuser,
             "hospital_id": hospital.id if hospital else None,
             "hospital_name": hospital.name if hospital else None,
         }
 
         return data
-
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -1204,3 +1237,229 @@ class StaffManagementView(APIView):
             {"message": "Staff account deactivated successfully."},
             status=status.HTTP_200_OK,
         )
+
+
+# ==========================================
+# SUPER ADMIN DASHBOARD AND HOSPITAL MANAGEMENT
+# ==========================================
+
+class SuperAdminDashboardView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        hospitals = Hospital.objects.filter(is_archived=False)
+
+        profiles = UserProfile.objects.filter(
+            hospital__is_archived=False,
+            user__is_active=True,
+        )
+
+        return Response({
+            "total_hospitals": hospitals.count(),
+            "approved_hospitals": hospitals.filter(
+                status="APPROVED"
+            ).count(),
+            "pending_hospitals": hospitals.filter(
+                status="PENDING"
+            ).count(),
+            "rejected_hospitals": hospitals.filter(
+                status="REJECTED"
+            ).count(),
+            "suspended_hospitals": hospitals.filter(
+                status="SUSPENDED"
+            ).count(),
+            "archived_hospitals": Hospital.objects.filter(
+                is_archived=True
+            ).count(),
+            "total_managers": profiles.filter(
+                role="Manager"
+            ).count(),
+            "total_nurses": profiles.filter(
+                role="Nurse"
+            ).count(),
+            "total_staff": profiles.filter(
+                role="Non-medical Staff"
+            ).count(),
+            "total_hospital_users": profiles.count(),
+        })
+
+
+class SuperAdminHospitalListView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        hospitals = Hospital.objects.select_related(
+            "reviewed_by"
+        )
+
+        # Archived hospitals are excluded by default.
+        archived = request.query_params.get("archived", "false").lower()
+
+        if archived == "true":
+            hospitals = hospitals.filter(is_archived=True)
+        else:
+            hospitals = hospitals.filter(is_archived=False)
+
+        search = request.query_params.get("search", "").strip()
+
+        if search:
+            hospitals = hospitals.filter(
+                Q(name__icontains=search)
+                | Q(city__icontains=search)
+            )
+
+        selected_status = request.query_params.get("status", "").upper()
+
+        if selected_status in [
+            "PENDING",
+            "APPROVED",
+            "REJECTED",
+            "SUSPENDED",
+        ]:
+            hospitals = hospitals.filter(status=selected_status)
+
+        hospitals = hospitals.order_by("-created_at")
+
+        data = []
+
+        for hospital in hospitals:
+            manager_profiles = UserProfile.objects.filter(
+                hospital=hospital,
+                role="Manager",
+            ).select_related("user")
+
+            manager = manager_profiles.first()
+
+            data.append({
+                "id": hospital.id,
+                "name": hospital.name,
+                "city": hospital.city,
+                "status": hospital.status,
+                "rejection_reason": hospital.rejection_reason,
+                "is_archived": hospital.is_archived,
+                "created_at": hospital.created_at,
+                "reviewed_at": hospital.reviewed_at,
+                "reviewed_by": (
+                    hospital.reviewed_by.username
+                    if hospital.reviewed_by else None
+                ),
+                "manager": {
+                    "id": manager.user_id,
+                    "username": manager.user.username,
+                    "email": manager.user.email,
+                } if manager else None,
+                "total_users": UserProfile.objects.filter(
+                    hospital=hospital
+                ).count(),
+            })
+
+        return Response({
+            "count": len(data),
+            "hospitals": data,
+        })
+
+
+class SuperAdminHospitalStatusView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def patch(self, request, hospital_id):
+        try:
+            hospital = Hospital.objects.get(
+                id=hospital_id,
+                is_archived=False,
+            )
+        except Hospital.DoesNotExist:
+            return Response(
+                {"detail": "Hospital not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        new_status = request.data.get("status", "").strip().upper()
+
+        allowed_statuses = [
+            "APPROVED",
+            "REJECTED",
+            "SUSPENDED",
+        ]
+
+        if new_status not in allowed_statuses:
+            return Response(
+                {
+                    "detail": (
+                        "Invalid status. Choose APPROVED, REJECTED "
+                        "or SUSPENDED."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rejection_reason = request.data.get(
+            "rejection_reason", ""
+        ).strip()
+
+        if new_status == "REJECTED" and not rejection_reason:
+            return Response(
+                {
+                    "detail": (
+                        "A rejection reason is required "
+                        "when rejecting a hospital."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        hospital.status = new_status
+        hospital.reviewed_at = timezone.now()
+        hospital.reviewed_by = request.user
+
+        if new_status == "REJECTED":
+            hospital.rejection_reason = rejection_reason
+        else:
+            hospital.rejection_reason = ""
+
+        hospital.save(update_fields=[
+            "status",
+            "rejection_reason",
+            "reviewed_at",
+            "reviewed_by",
+        ])
+
+        return Response({
+            "message": f"Hospital status updated to {new_status}.",
+            "hospital_id": hospital.id,
+            "hospital_name": hospital.name,
+            "status": hospital.status,
+            "rejection_reason": hospital.rejection_reason,
+        })
+
+# SUPER ADMIN DASHBOARD AND HOSPITAL MANAGEMENT
+
+class SuperAdminHospitalArchiveView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request, hospital_id):
+        try:
+            hospital = Hospital.objects.get(
+                id=hospital_id,
+                is_archived=False,
+            )
+        except Hospital.DoesNotExist:
+            return Response(
+                {"detail": "Hospital not found or already archived."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        hospital.is_archived = True
+        hospital.archived_at = timezone.now()
+
+        hospital.save(update_fields=[
+            "is_archived",
+            "archived_at",
+        ])
+
+        return Response({
+            "message": "Hospital archived successfully.",
+            "hospital_id": hospital.id,
+            "hospital_name": hospital.name,
+            "is_archived": hospital.is_archived,
+        })

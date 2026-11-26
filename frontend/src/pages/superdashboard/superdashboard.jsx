@@ -1,80 +1,8 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API_URL from "../../services/api";
 import "./superdashboard.css";
-
-const initialHospitals = [
-  {
-    id: 1,
-    name: "City Care Hospital",
-    location: "Mathura, Uttar Pradesh",
-    manager: "Rahul Sharma",
-    email: "rahul@citycare.com",
-    phone: "+91 9876543210",
-    status: "Verified",
-    joined: "20 Nov 2026",
-    documents: ["Hospital Registration", "License Certificate"],
-  },
-  {
-    id: 2,
-    name: "LifeLine Hospital",
-    location: "Delhi, India",
-    manager: "Amit Verma",
-    email: "amit@lifeline.com",
-    phone: "+91 9876543211",
-    status: "Pending",
-    joined: "22 Nov 2026",
-    documents: ["Hospital Registration", "License Certificate"],
-  },
-  {
-    id: 3,
-    name: "Medicare Hospital",
-    location: "Agra, Uttar Pradesh",
-    manager: "Neha Gupta",
-    email: "neha@medicare.com",
-    phone: "+91 9876543212",
-    status: "Banned",
-    joined: "18 Nov 2026",
-    documents: ["Hospital Registration"],
-  },
-];
-
-const initialRequests = [
-  {
-    id: 101,
-    hospital: "LifeLine Hospital",
-    manager: "Amit Verma",
-    date: "22 Nov 2026",
-    status: "Pending",
-    documents: ["Hospital Registration", "License Certificate"],
-  },
-  {
-    id: 102,
-    hospital: "Sunrise Hospital",
-    manager: "Karan Singh",
-    date: "23 Nov 2026",
-    status: "Pending",
-    documents: ["Hospital Registration", "License Certificate"],
-  },
-];
-
-const initialUsers = [
-  {
-    id: 1,
-    name: "Rahul Sharma",
-    email: "rahul@citycare.com",
-    role: "Hospital Manager",
-    hospital: "City Care Hospital",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Amit Verma",
-    email: "amit@lifeline.com",
-    role: "Hospital Manager",
-    hospital: "LifeLine Hospital",
-    status: "Active",
-  },
-];
 
 const navigation = [
   { id: "overview", icon: "▦", label: "Overview" },
@@ -84,36 +12,281 @@ const navigation = [
   { id: "users", icon: "♙", label: "Previous Users" },
 ];
 
+const pageTitle = {
+  overview: "Super Admin Overview",
+  hospitals: "Hospital Management",
+  verification: "Verification Requests",
+  applications: "Hospital Applications",
+  users: "Previous Users",
+};
+
+const getToken = () =>
+  localStorage.getItem("access_token") ||
+  sessionStorage.getItem("access_token");
+
+const getStoredUser = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("user") ||
+      sessionStorage.getItem("user") ||
+      "{}"
+    );
+  } catch {
+    return {};
+  }
+};
+
+const getList = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.hospitals)) return data.hospitals;
+  return [];
+};
+
+const formatDate = (value) => {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getManagerDetails = (hospital) => {
+  const manager =
+    hospital.manager_details ||
+    hospital.manager ||
+    {};
+
+  if (typeof manager === "string") {
+    return {
+      name: manager,
+      email: "",
+      phone: "",
+    };
+  }
+
+  return {
+    name:
+      manager.name ||
+      manager.full_name ||
+      manager.username ||
+      hospital.manager_name ||
+      "Not assigned",
+    email:
+      manager.email ||
+      hospital.manager_email ||
+      "",
+    phone:
+      manager.phone ||
+      hospital.manager_phone ||
+      "",
+  };
+};
+
+const normalizeHospital = (hospital) => {
+  const manager = getManagerDetails(hospital);
+
+  let status = hospital.status || "PENDING";
+
+  if (hospital.is_archived) {
+    status = "ARCHIVED";
+  }
+
+  return {
+    id: hospital.id,
+    name: hospital.name || "Unnamed Hospital",
+    location: hospital.city || hospital.location || "Not provided",
+    manager: manager.name,
+    email: manager.email,
+    phone: manager.phone,
+    status,
+    joined: formatDate(hospital.created_at),
+    documents: [],
+    rejectionReason: hospital.rejection_reason || "",
+    totalUsers: hospital.total_users || 0,
+    isArchived: Boolean(hospital.is_archived),
+  };
+};
+
+const displayStatus = (status) => {
+  const labels = {
+    APPROVED: "Verified",
+    PENDING: "Pending",
+    REJECTED: "Rejected",
+    SUSPENDED: "Banned",
+    ARCHIVED: "Archived",
+  };
+
+  return labels[status] || status;
+};
+
 export default function SuperDashboard() {
+  const navigate = useNavigate();
+
   const [activePage, setActivePage] = useState("overview");
-  const [hospitals, setHospitals] = useState(initialHospitals);
-  const [requests, setRequests] = useState(initialRequests);
-  const [users] = useState(initialUsers);
+  const [hospitals, setHospitals] = useState([]);
+  const [archivedHospitals, setArchivedHospitals] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({});
   const [selectedHospital, setSelectedHospital] = useState(null);
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+
   const [mobileMenu, setMobileMenu] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
+
   const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const pendingCount = requests.filter(
-    (request) => request.status === "Pending"
-  ).length;
+  const currentUser = getStoredUser();
 
-  const verifiedCount = hospitals.filter(
-    (hospital) => hospital.status === "Verified"
-  ).length;
+  const notify = (message) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 3000);
+  };
 
-  const bannedCount = hospitals.filter(
-    (hospital) => hospital.status === "Banned"
-  ).length;
+  const apiRequest = useCallback(async (endpoint, options = {}) => {
+    const token = getToken();
+
+    if (!token) {
+      throw new Error("Session expired. Please login again.");
+    }
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+
+    const responseText = await response.text();
+
+    let data = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      throw new Error("Backend returned an invalid response.");
+    }
+
+    if (response.status === 401) {
+      throw new Error("Session expired. Please login again.");
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+        data.error ||
+        data.rejection_reason ||
+        "Something went wrong."
+      );
+    }
+
+    return data;
+  }, []);
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [statsData, hospitalData, archivedData] = await Promise.all([
+        apiRequest("/super-admin/dashboard/"),
+        apiRequest("/super-admin/hospitals/"),
+        apiRequest("/super-admin/hospitals/?archived=true"),
+      ]);
+
+      setDashboardStats(statsData);
+
+      setHospitals(
+        getList(hospitalData).map(normalizeHospital)
+      );
+
+      setArchivedHospitals(
+        getList(archivedData).map(normalizeHospital)
+      );
+    } catch (err) {
+      setError(err.message);
+
+      if (err.message.includes("Session expired")) {
+        notify(err.message);
+        logout();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [apiRequest]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const logout = () => {
+    [
+      "access_token",
+      "refresh_token",
+      "user",
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+
+    navigate("/login", { replace: true });
+  };
+
+  const pendingHospitals = hospitals.filter(
+    (hospital) => hospital.status === "PENDING"
+  );
+
+  const verifiedHospitals = hospitals.filter(
+    (hospital) => hospital.status === "APPROVED"
+  );
+
+  const bannedHospitals = hospitals.filter(
+    (hospital) => hospital.status === "SUSPENDED"
+  );
+
+  const applications = [
+    ...hospitals,
+    ...archivedHospitals.filter(
+      (archived) =>
+        !hospitals.some((hospital) => hospital.id === archived.id)
+    ),
+  ];
+
+  const users = useMemo(() => {
+    const allHospitals = [...hospitals, ...archivedHospitals];
+
+    return allHospitals
+      .filter((hospital) => hospital.manager !== "Not assigned")
+      .map((hospital) => ({
+        id: `${hospital.id}-${hospital.manager}`,
+        name: hospital.manager,
+        email: hospital.email || "Not provided",
+        role: "Hospital Manager",
+        hospital: hospital.name,
+        status: hospital.isArchived ? "Archived" : "Active",
+      }));
+  }, [hospitals, archivedHospitals]);
 
   const filteredHospitals = useMemo(() => {
     return hospitals.filter((hospital) => {
+      const searchValue = search.toLowerCase();
+
       const matchesSearch =
-        hospital.name.toLowerCase().includes(search.toLowerCase()) ||
-        hospital.location.toLowerCase().includes(search.toLowerCase()) ||
-        hospital.manager.toLowerCase().includes(search.toLowerCase());
+        hospital.name.toLowerCase().includes(searchValue) ||
+        hospital.location.toLowerCase().includes(searchValue) ||
+        hospital.manager.toLowerCase().includes(searchValue);
 
       const matchesFilter =
         filter === "All" || hospital.status === filter;
@@ -121,11 +294,6 @@ export default function SuperDashboard() {
       return matchesSearch && matchesFilter;
     });
   }, [hospitals, search, filter]);
-
-  const notify = (message) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2500);
-  };
 
   const changePage = (page) => {
     setActivePage(page);
@@ -135,82 +303,76 @@ export default function SuperDashboard() {
     setFilter("All");
   };
 
-  const updateHospitalStatus = (id, status) => {
-    setHospitals((current) =>
-      current.map((hospital) =>
-        hospital.id === id ? { ...hospital, status } : hospital
-      )
-    );
+  const updateHospitalStatus = async (id, status) => {
+    let rejectionReason = "";
 
-    setSelectedHospital((current) =>
-      current?.id === id ? { ...current, status } : current
-    );
+    if (status === "REJECTED") {
+      rejectionReason = window.prompt(
+        "Please enter the reason for rejecting this hospital:"
+      );
 
-    setConfirmation(null);
-    notify(`Hospital ${status.toLowerCase()} successfully.`);
-  };
+      if (rejectionReason === null) return;
 
-  const deleteHospital = (id) => {
-    const hospital = hospitals.find((item) => item.id === id);
-
-    setHospitals((current) =>
-      current.filter((item) => item.id !== id)
-    );
-
-    setSelectedHospital(null);
-    setConfirmation(null);
-    notify(`${hospital?.name} deleted from this dashboard.`);
-  };
-
-  const updateRequest = (id, status) => {
-    const request = requests.find((item) => item.id === id);
-
-    setRequests((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, status } : item
-      )
-    );
-
-    if (status === "Approved" && request) {
-      setHospitals((current) => {
-        const exists = current.some(
-          (hospital) => hospital.name === request.hospital
-        );
-
-        if (exists) {
-          return current.map((hospital) =>
-            hospital.name === request.hospital
-              ? { ...hospital, status: "Verified" }
-              : hospital
-          );
-        }
-
-        return [
-          ...current,
-          {
-            id: Date.now(),
-            name: request.hospital,
-            location: "Location not provided",
-            manager: request.manager,
-            email: "Not provided",
-            phone: "Not provided",
-            status: "Verified",
-            joined: request.date,
-            documents: request.documents,
-          },
-        ];
-      });
+      if (!rejectionReason.trim()) {
+        notify("Rejection reason is required.");
+        return;
+      }
     }
 
-    notify(`Request ${status.toLowerCase()} successfully.`);
+    setActionLoading(true);
+
+    try {
+      const body = {
+        status,
+        ...(status === "REJECTED"
+          ? { rejection_reason: rejectionReason.trim() }
+          : {}),
+      };
+
+      await apiRequest(
+        `/super-admin/hospitals/${id}/status/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        }
+      );
+
+      setSelectedHospital(null);
+      setConfirmation(null);
+
+      await loadDashboard();
+
+      notify(`Hospital ${displayStatus(status).toLowerCase()} successfully.`);
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const pageTitle = {
-    overview: "Super Admin Overview",
-    hospitals: "Hospital Management",
-    verification: "Verification Requests",
-    applications: "Hospital Applications",
-    users: "Previous Users",
+  const archiveHospital = async (id) => {
+    setActionLoading(true);
+
+    try {
+      await apiRequest(
+        `/super-admin/hospitals/${id}/archive/`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        }
+      );
+
+      setSelectedHospital(null);
+      setConfirmation(null);
+
+      await loadDashboard();
+
+      notify("Hospital archived successfully.");
+    } catch (err) {
+      notify(err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const StatCard = ({ title, value, icon, description }) => (
@@ -219,16 +381,21 @@ export default function SuperDashboard() {
         <span>{title}</span>
         <span className="sd-stat-icon">{icon}</span>
       </div>
-      <h2>{value}</h2>
+      <h2>{value ?? 0}</h2>
       <p>{description}</p>
     </div>
   );
 
-  const Status = ({ value }) => (
-    <span className={`sd-status sd-status-${value.toLowerCase()}`}>
-      {value}
-    </span>
-  );
+  const Status = ({ value }) => {
+    const label = displayStatus(value);
+    const cssClass = label.toLowerCase().replace(/\s+/g, "-");
+
+    return (
+      <span className={`sd-status sd-status-${cssClass}`}>
+        {label}
+      </span>
+    );
+  };
 
   const HospitalTable = () => (
     <div className="sd-table-wrapper">
@@ -242,6 +409,7 @@ export default function SuperDashboard() {
             <th>Action</th>
           </tr>
         </thead>
+
         <tbody>
           {filteredHospitals.map((hospital) => (
             <tr key={hospital.id}>
@@ -249,9 +417,11 @@ export default function SuperDashboard() {
                 <strong>{hospital.name}</strong>
                 <small>ID: #{hospital.id}</small>
               </td>
+
               <td>{hospital.manager}</td>
               <td>{hospital.location}</td>
               <td><Status value={hospital.status} /></td>
+
               <td>
                 <button
                   className="sd-text-btn"
@@ -262,6 +432,7 @@ export default function SuperDashboard() {
               </td>
             </tr>
           ))}
+
           {filteredHospitals.length === 0 && (
             <tr>
               <td colSpan="5" className="sd-empty">
@@ -282,17 +453,39 @@ export default function SuperDashboard() {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
+
       <select
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
       >
         <option value="All">All Hospitals</option>
-        <option value="Verified">Verified</option>
-        <option value="Pending">Pending</option>
-        <option value="Banned">Banned</option>
+        <option value="APPROVED">Verified</option>
+        <option value="PENDING">Pending</option>
+        <option value="REJECTED">Rejected</option>
+        <option value="SUSPENDED">Banned</option>
       </select>
     </div>
   );
+
+  const openConfirmation = (type, hospital) => {
+    setConfirmation({
+      type,
+      id: hospital.id,
+      name: hospital.name,
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="sd-layout">
+        <main className="sd-main">
+          <div className="sd-content">
+            <p>Loading Super Admin Dashboard...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="sd-layout">
@@ -326,9 +519,13 @@ export default function SuperDashboard() {
             >
               <span className="sd-nav-icon">{item.icon}</span>
               {item.label}
-              {item.id === "verification" && pendingCount > 0 && (
-                <span className="sd-nav-count">{pendingCount}</span>
-              )}
+
+              {item.id === "verification" &&
+                pendingHospitals.length > 0 && (
+                  <span className="sd-nav-count">
+                    {pendingHospitals.length}
+                  </span>
+                )}
             </button>
           ))}
         </nav>
@@ -337,14 +534,12 @@ export default function SuperDashboard() {
           <div className="sd-admin-profile">
             <div className="sd-avatar">SA</div>
             <div>
-              <strong>Super Admin</strong>
+              <strong>{currentUser.username || "Super Admin"}</strong>
               <span>System Administrator</span>
             </div>
           </div>
-          <button
-            className="sd-logout"
-            onClick={() => notify("Connect logout to your authentication system.")}
-          >
+
+          <button className="sd-logout" onClick={logout}>
             ↪ &nbsp; Logout
           </button>
         </div>
@@ -373,6 +568,15 @@ export default function SuperDashboard() {
 
         <div className="sd-content">
 
+          {error && (
+            <section className="sd-panel">
+              <p>{error}</p>
+              <button className="sd-primary-btn" onClick={loadDashboard}>
+                Retry
+              </button>
+            </section>
+          )}
+
           {activePage === "overview" && (
             <>
               <div className="sd-welcome">
@@ -386,25 +590,28 @@ export default function SuperDashboard() {
               <div className="sd-stats-grid">
                 <StatCard
                   title="Total Hospitals"
-                  value={hospitals.length}
+                  value={dashboardStats.total_hospitals}
                   icon="✚"
                   description="Registered hospitals"
                 />
+
                 <StatCard
                   title="Verified Hospitals"
-                  value={verifiedCount}
+                  value={dashboardStats.approved_hospitals}
                   icon="✓"
                   description="Approved and active"
                 />
+
                 <StatCard
                   title="Pending Requests"
-                  value={pendingCount}
+                  value={dashboardStats.pending_hospitals}
                   icon="◷"
                   description="Awaiting verification"
                 />
+
                 <StatCard
                   title="Banned Hospitals"
-                  value={bannedCount}
+                  value={dashboardStats.suspended_hospitals}
                   icon="⊘"
                   description="Restricted hospitals"
                 />
@@ -416,6 +623,7 @@ export default function SuperDashboard() {
                     <h3>Recent Hospital Registrations</h3>
                     <p>Recently registered hospitals and their status</p>
                   </div>
+
                   <button
                     className="sd-primary-btn"
                     onClick={() => changePage("hospitals")}
@@ -423,6 +631,7 @@ export default function SuperDashboard() {
                     View All Hospitals →
                   </button>
                 </div>
+
                 <HospitalTable />
               </section>
 
@@ -432,6 +641,7 @@ export default function SuperDashboard() {
                     <h3>Pending Verification</h3>
                     <p>Applications waiting for your review</p>
                   </div>
+
                   <button
                     className="sd-text-btn"
                     onClick={() => changePage("verification")}
@@ -440,16 +650,21 @@ export default function SuperDashboard() {
                   </button>
                 </div>
 
-                {requests.filter((r) => r.status === "Pending").length === 0 ? (
-                  <p className="sd-empty">No pending verification requests.</p>
+                {pendingHospitals.length === 0 ? (
+                  <p className="sd-empty">
+                    No pending verification requests.
+                  </p>
                 ) : (
-                  requests.filter((r) => r.status === "Pending").map((request) => (
-                    <div className="sd-request-row" key={request.id}>
+                  pendingHospitals.map((hospital) => (
+                    <div className="sd-request-row" key={hospital.id}>
                       <div>
-                        <strong>{request.hospital}</strong>
-                        <p>Manager: {request.manager} · {request.date}</p>
+                        <strong>{hospital.name}</strong>
+                        <p>
+                          Manager: {hospital.manager} · {hospital.joined}
+                        </p>
                       </div>
-                      <Status value={request.status} />
+
+                      <Status value={hospital.status} />
                     </div>
                   ))
                 )}
@@ -473,86 +688,97 @@ export default function SuperDashboard() {
                       <h2>{selectedHospital.name}</h2>
                       <p>Hospital ID: #{selectedHospital.id}</p>
                     </div>
+
                     <Status value={selectedHospital.status} />
                   </div>
 
                   <div className="sd-detail-grid">
-                    <div className="sd-detail-card">
-                      <span>Hospital Location</span>
+                    <div>
+                      <span>Hospital Name</span>
+                      <strong>{selectedHospital.name}</strong>
+                    </div>
+
+                    <div>
+                      <span>Location</span>
                       <strong>{selectedHospital.location}</strong>
                     </div>
-                    <div className="sd-detail-card">
+
+                    <div>
                       <span>Registration Date</span>
                       <strong>{selectedHospital.joined}</strong>
                     </div>
-                    <div className="sd-detail-card">
-                      <span>Manager Name</span>
-                      <strong>{selectedHospital.manager}</strong>
-                    </div>
-                    <div className="sd-detail-card">
-                      <span>Manager Email</span>
-                      <strong>{selectedHospital.email}</strong>
-                    </div>
-                    <div className="sd-detail-card">
-                      <span>Contact Number</span>
-                      <strong>{selectedHospital.phone}</strong>
+
+                    <div>
+                      <span>Total Users</span>
+                      <strong>{selectedHospital.totalUsers}</strong>
                     </div>
                   </div>
 
-                  <h3 className="sd-subheading">Associated Managers</h3>
-                  <div className="sd-manager-card">
-                    <div className="sd-avatar">M</div>
+                  <h3 className="sd-subheading">Hospital Manager</h3>
+
+                  <div className="sd-manager-row">
+                    <div className="sd-avatar">HM</div>
                     <div>
                       <strong>{selectedHospital.manager}</strong>
-                      <p>{selectedHospital.email}</p>
+                      <p>{selectedHospital.email || "Email not provided"}</p>
                     </div>
-                    <Status value="Active" />
+                    <Status value={selectedHospital.status} />
                   </div>
 
+                  {selectedHospital.rejectionReason && (
+                    <>
+                      <h3 className="sd-subheading">Rejection Reason</h3>
+                      <p>{selectedHospital.rejectionReason}</p>
+                    </>
+                  )}
+
                   <h3 className="sd-subheading">Submitted Documents</h3>
-                  {selectedHospital.documents.map((document, index) => (
-                    <div className="sd-document-row" key={index}>
-                      <span>▤ &nbsp; {document}</span>
-                      <span className="sd-document-note">
-                        Document record
-                      </span>
-                    </div>
-                  ))}
+
+                  <div className="sd-document-row">
+                    <span>Document records</span>
+                    <span className="sd-document-note">
+                      No document records available
+                    </span>
+                  </div>
 
                   <div className="sd-detail-actions">
-                    {selectedHospital.status !== "Banned" ? (
+                    {selectedHospital.status !== "SUSPENDED" &&
+                      selectedHospital.status !== "ARCHIVED" ? (
+                        <button
+                          className="sd-danger-btn"
+                          disabled={actionLoading}
+                          onClick={() =>
+                            openConfirmation("suspend", selectedHospital)
+                          }
+                        >
+                          Suspend Hospital
+                        </button>
+                      ) : selectedHospital.status === "SUSPENDED" ? (
+                        <button
+                          className="sd-success-btn"
+                          disabled={actionLoading}
+                          onClick={() =>
+                            updateHospitalStatus(
+                              selectedHospital.id,
+                              "APPROVED"
+                            )
+                          }
+                        >
+                          Reactivate Hospital
+                        </button>
+                      ) : null}
+
+                    {selectedHospital.status !== "ARCHIVED" && (
                       <button
-                        className="sd-danger-btn"
-                        onClick={() => setConfirmation({
-                          type: "ban",
-                          id: selectedHospital.id,
-                          name: selectedHospital.name,
-                        })}
+                        className="sd-danger-outline"
+                        disabled={actionLoading}
+                        onClick={() =>
+                          openConfirmation("archive", selectedHospital)
+                        }
                       >
-                        Ban Hospital
-                      </button>
-                    ) : (
-                      <button
-                        className="sd-success-btn"
-                        onClick={() => updateHospitalStatus(
-                          selectedHospital.id,
-                          "Verified"
-                        )}
-                      >
-                        Unban Hospital
+                        Archive Hospital
                       </button>
                     )}
-
-                    <button
-                      className="sd-danger-outline"
-                      onClick={() => setConfirmation({
-                        type: "delete",
-                        id: selectedHospital.id,
-                        name: selectedHospital.name,
-                      })}
-                    >
-                      Delete Hospital
-                    </button>
                   </div>
                 </>
               ) : (
@@ -562,10 +788,12 @@ export default function SuperDashboard() {
                       <h3>All Hospitals</h3>
                       <p>View hospitals, managers and account status</p>
                     </div>
+
                     <span className="sd-total-label">
                       {hospitals.length} Hospitals
                     </span>
                   </div>
+
                   <SearchBar />
                   <HospitalTable />
                 </>
@@ -578,53 +806,65 @@ export default function SuperDashboard() {
               <div className="sd-panel-heading">
                 <div>
                   <h3>Hospital Verification</h3>
-                  <p>Review registration details and submitted documents</p>
+                  <p>Review hospital registration details</p>
                 </div>
+
                 <span className="sd-total-label">
-                  {pendingCount} Pending
+                  {pendingHospitals.length} Pending
                 </span>
               </div>
 
               <div className="sd-request-list">
-                {requests.map((request) => (
-                  <div className="sd-verification-card" key={request.id}>
+                {pendingHospitals.map((hospital) => (
+                  <div className="sd-verification-card" key={hospital.id}>
                     <div className="sd-verification-top">
                       <div>
-                        <h3>{request.hospital}</h3>
-                        <p>Manager: {request.manager}</p>
-                        <p>Submitted: {request.date}</p>
+                        <h3>{hospital.name}</h3>
+                        <p>Manager: {hospital.manager}</p>
+                        <p>Submitted: {hospital.joined}</p>
+                        <p>Location: {hospital.location}</p>
                       </div>
-                      <Status value={request.status} />
+
+                      <Status value={hospital.status} />
                     </div>
 
                     <h4>Submitted Documents</h4>
-                    {request.documents.map((doc, index) => (
-                      <div className="sd-document-row" key={index}>
-                        <span>▤ &nbsp; {doc}</span>
-                        <span className="sd-document-note">Document record</span>
-                      </div>
-                    ))}
 
-                    {request.status === "Pending" && (
-                      <div className="sd-action-row">
-                        <button
-                          className="sd-success-btn"
-                          onClick={() => updateRequest(request.id, "Approved")}
-                        >
-                          ✓ Approve
-                        </button>
-                        <button
-                          className="sd-danger-btn"
-                          onClick={() => updateRequest(request.id, "Rejected")}
-                        >
-                          ✕ Reject
-                        </button>
-                      </div>
-                    )}
+                    <div className="sd-document-row">
+                      <span>Document records</span>
+                      <span className="sd-document-note">
+                        No document records available
+                      </span>
+                    </div>
+
+                    <div className="sd-action-row">
+                      <button
+                        className="sd-success-btn"
+                        disabled={actionLoading}
+                        onClick={() =>
+                          updateHospitalStatus(hospital.id, "APPROVED")
+                        }
+                      >
+                        ✓ Approve
+                      </button>
+
+                      <button
+                        className="sd-danger-btn"
+                        disabled={actionLoading}
+                        onClick={() =>
+                          updateHospitalStatus(hospital.id, "REJECTED")
+                        }
+                      >
+                        ✕ Reject
+                      </button>
+                    </div>
                   </div>
                 ))}
-                {requests.length === 0 && (
-                  <p className="sd-empty">No applications available.</p>
+
+                {pendingHospitals.length === 0 && (
+                  <p className="sd-empty">
+                    No pending applications available.
+                  </p>
                 )}
               </div>
             </section>
@@ -638,6 +878,7 @@ export default function SuperDashboard() {
                   <p>Track approved, rejected and pending applications</p>
                 </div>
               </div>
+
               <div className="sd-table-wrapper">
                 <table className="sd-table">
                   <thead>
@@ -649,16 +890,25 @@ export default function SuperDashboard() {
                       <th>Status</th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {requests.map((request) => (
-                      <tr key={request.id}>
-                        <td>#{request.id}</td>
-                        <td><strong>{request.hospital}</strong></td>
-                        <td>{request.manager}</td>
-                        <td>{request.date}</td>
-                        <td><Status value={request.status} /></td>
+                    {applications.map((hospital) => (
+                      <tr key={hospital.id}>
+                        <td>#{hospital.id}</td>
+                        <td><strong>{hospital.name}</strong></td>
+                        <td>{hospital.manager}</td>
+                        <td>{hospital.joined}</td>
+                        <td><Status value={hospital.status} /></td>
                       </tr>
                     ))}
+
+                    {applications.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="sd-empty">
+                          No applications available.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -670,7 +920,7 @@ export default function SuperDashboard() {
               <div className="sd-panel-heading">
                 <div>
                   <h3>Previous Users History</h3>
-                  <p>Preserved user records and associated hospitals</p>
+                  <p>Manager records associated with hospitals</p>
                 </div>
               </div>
 
@@ -685,6 +935,7 @@ export default function SuperDashboard() {
                       <th>Status</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {users.map((user) => (
                       <tr key={user.id}>
@@ -695,13 +946,21 @@ export default function SuperDashboard() {
                         <td><Status value={user.status} /></td>
                       </tr>
                     ))}
+
+                    {users.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="sd-empty">
+                          No manager records available.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
+
               <p className="sd-history-note">
-                Historical records are displayed separately from active
-                hospital management. They should not be deleted when a
-                hospital is removed.
+                Archived hospital manager records are displayed here when
+                available. Archiving a hospital does not permanently delete it.
               </p>
             </section>
           )}
@@ -713,35 +972,46 @@ export default function SuperDashboard() {
         <div className="sd-modal-backdrop">
           <div className="sd-modal">
             <div className="sd-modal-icon">!</div>
+
             <h3>
-              {confirmation.type === "ban"
-                ? "Ban this hospital?"
-                : "Delete this hospital?"}
+              {confirmation.type === "suspend"
+                ? "Suspend this hospital?"
+                : "Archive this hospital?"}
             </h3>
+
             <p>
-              Are you sure you want to {confirmation.type}{" "}
+              Are you sure you want to{" "}
+              {confirmation.type}{" "}
               <strong>{confirmation.name}</strong>?
-              {confirmation.type === "delete" &&
-                " This action removes it from this dashboard."}
+
+              {confirmation.type === "archive" &&
+                " The hospital will be archived, not permanently deleted."}
             </p>
+
             <div className="sd-modal-actions">
               <button
                 className="sd-secondary-btn"
+                disabled={actionLoading}
                 onClick={() => setConfirmation(null)}
               >
                 Cancel
               </button>
+
               <button
                 className="sd-danger-btn"
+                disabled={actionLoading}
                 onClick={() => {
-                  if (confirmation.type === "ban") {
-                    updateHospitalStatus(confirmation.id, "Banned");
+                  if (confirmation.type === "suspend") {
+                    updateHospitalStatus(
+                      confirmation.id,
+                      "SUSPENDED"
+                    );
                   } else {
-                    deleteHospital(confirmation.id);
+                    archiveHospital(confirmation.id);
                   }
                 }}
               >
-                Confirm
+                {actionLoading ? "Processing..." : "Confirm"}
               </button>
             </div>
           </div>
