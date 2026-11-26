@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import API_URL from "../../services/api";
 import "./Signup.css";
 
-
 function Signup() {
   const navigate = useNavigate();
 
@@ -18,9 +17,32 @@ function Signup() {
     confirmPassword: "",
   });
 
+  const [otp, setOtp] = useState("");
+  const [verificationToken, setVerificationToken] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
+  const getErrorMessage = (data) => {
+    if (data?.detail) return data.detail;
+
+    return Object.entries(data || {})
+      .map(([field, value]) => {
+        const detail = Array.isArray(value)
+          ? value.join(", ")
+          : typeof value === "string"
+            ? value
+            : JSON.stringify(value);
+
+        return `${field}: ${detail}`;
+      })
+      .join(" | ") || "Something went wrong. Please try again.";
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -32,6 +54,123 @@ function Signup() {
 
     setError("");
     setMessage("");
+
+    if (name === "email") {
+      setEmailVerified(false);
+      setVerificationToken("");
+      setOtpSent(false);
+      setOtp("");
+    }
+  };
+
+  const sendOtp = async (isResend = false) => {
+    const email = formData.email.trim().toLowerCase();
+
+    if (!email) {
+      setError("Please enter your email address first.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    setOtpLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const endpoint = isResend
+        ? `${API_URL}/auth/resend-otp/`
+        : `${API_URL}/auth/send-otp/`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          first_name: formData.fullName.trim().split(/\s+/)[0] || "",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data));
+      }
+
+      setOtpSent(true);
+      setEmailVerified(false);
+      setVerificationToken("");
+      setOtp("");
+
+      setMessage(
+        isResend
+          ? "A new OTP has been sent. Please check your inbox."
+          : "OTP sent successfully. Please check your email inbox."
+      );
+    } catch (err) {
+      setError(err.message || "Unable to send OTP. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const email = formData.email.trim().toLowerCase();
+
+    if (!otp.trim()) {
+      setError("Please enter the 6-digit OTP.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setError("OTP must contain exactly 6 digits.");
+      return;
+    }
+
+    setVerifyLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-otp/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          otp: otp.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data));
+      }
+
+      if (!data.verification_token) {
+        throw new Error("Verification token was not returned by the server.");
+      }
+
+      setVerificationToken(data.verification_token);
+      setEmailVerified(true);
+      setOtpSent(false);
+      setOtp("");
+
+      setMessage(
+        "Email verified successfully. You can now register your hospital."
+      );
+    } catch (err) {
+      setError(err.message || "OTP verification failed. Please try again.");
+    } finally {
+      setVerifyLoading(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -57,6 +196,11 @@ function Signup() {
       return;
     }
 
+    if (!emailVerified || !verificationToken) {
+      setError("Please verify your email before registering.");
+      return;
+    }
+
     if (formData.password.length < 8) {
       setError("Password must contain at least 8 characters.");
       return;
@@ -77,8 +221,9 @@ function Signup() {
       first_name: firstName,
       last_name: lastName,
       username: formData.username.trim(),
-      email: formData.email.trim(),
+      email: formData.email.trim().toLowerCase(),
       password: formData.password,
+      verification_token: verificationToken,
     };
 
     setLoading(true);
@@ -100,29 +245,20 @@ function Signup() {
       const data = await response.json();
 
       if (!response.ok) {
-        const errors = Object.entries(data)
-          .map(([field, value]) => {
-            const detail = Array.isArray(value)
-              ? value.join(", ")
-              : typeof value === "string"
-                ? value
-                : JSON.stringify(value);
-
-            return `${field}: ${detail}`;
-          })
-          .join(" | ");
-
-        throw new Error(errors || "Registration failed.");
+        throw new Error(getErrorMessage(data));
       }
 
-      setMessage("Registration successful! Redirecting to email verification...");
-      navigate("/verify-otp", {
+      setMessage(
+        "Hospital registered successfully. Redirecting to login..."
+      );
+
+      navigate("/login", {
         replace: true,
         state: {
-          email: formData.email.trim(),
+          registrationSuccess: true,
+          email: formData.email.trim().toLowerCase(),
         },
       });
-
     } catch (err) {
       setError(
         err.message || "Unable to register hospital. Please try again."
@@ -213,17 +349,93 @@ function Signup() {
 
           <div className="signup-field">
             <label htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="manager@hospital.com"
-              value={formData.email}
-              onChange={handleChange}
-              autoComplete="email"
-              required
-            />
+
+            <div className="signup-email-row">
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="manager@hospital.com"
+                value={formData.email}
+                onChange={handleChange}
+                autoComplete="email"
+                disabled={emailVerified}
+                required
+              />
+
+              {emailVerified ? (
+                <span className="signup-verified-badge">
+                  <span aria-hidden="true">✓</span> Verified
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="signup-verify-button"
+                  onClick={() => sendOtp(false)}
+                  disabled={otpLoading || !formData.email.trim()}
+                >
+                  {otpLoading
+                    ? "Sending..."
+                    : otpSent
+                      ? "OTP Sent"
+                      : "Verify Now"}
+                </button>
+              )}
+            </div>
+
+            <small className="signup-field-hint">
+              Verify your email address before registering the hospital.
+            </small>
           </div>
+
+          {otpSent && !emailVerified && (
+            <div className="signup-otp-panel">
+
+              <div className="signup-otp-heading">
+                <strong>Verify your email</strong>
+                <span>
+                  Enter the 6-digit code sent to your inbox.
+                </span>
+              </div>
+
+              <div className="signup-otp-row">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  aria-label="6-digit email OTP"
+                  placeholder="Enter 6-digit OTP"
+                  value={otp}
+                  onChange={(event) => {
+                    setOtp(
+                      event.target.value.replace(/\D/g, "").slice(0, 6)
+                    );
+                    setError("");
+                  }}
+                  maxLength={6}
+                />
+
+                <button
+                  type="button"
+                  className="signup-verify-button"
+                  onClick={handleVerifyOtp}
+                  disabled={verifyLoading || otp.length !== 6}
+                >
+                  {verifyLoading ? "Verifying..." : "Verify OTP"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="signup-resend-button"
+                onClick={() => sendOtp(true)}
+                disabled={otpLoading}
+              >
+                {otpLoading ? "Sending..." : "Resend OTP"}
+              </button>
+
+            </div>
+          )}
 
           <div className="signup-field">
             <label htmlFor="password">Password</label>
@@ -269,10 +481,17 @@ function Signup() {
             </div>
           )}
 
+          {!emailVerified && (
+            <p className="signup-verification-note">
+              <span aria-hidden="true">🔒</span>
+              Email verification is required to enable hospital registration.
+            </p>
+          )}
+
           <button
             type="submit"
             className="signup-submit"
-            disabled={loading}
+            disabled={loading || !emailVerified || !verificationToken}
           >
             {loading ? "Registering..." : "Register Hospital"}
           </button>
@@ -282,7 +501,7 @@ function Signup() {
         <div className="signup-footer">
           <p>
             Already registered?{" "}
-            <Link to="/" className="signup-login-link">
+            <Link to="/login" className="signup-login-link">
               Sign in
             </Link>
           </p>
@@ -298,4 +517,3 @@ function Signup() {
 }
 
 export default Signup;
-

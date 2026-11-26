@@ -1,4 +1,4 @@
-
+﻿
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../../services/api";
@@ -28,17 +28,15 @@ function PatientManagement() {
   const [editingPatient, setEditingPatient] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  // ==========================================
   // AUTHENTICATION
-  // ==========================================
-
+ 
   const getToken = () =>
     localStorage.getItem("access_token") ||
     sessionStorage.getItem("access_token");
 
-  // ==========================================
+  
   // API RESPONSE HANDLER
-  // ==========================================
+  
 
   const readResponse = async (response) => {
     const text = await response.text();
@@ -54,10 +52,8 @@ function PatientManagement() {
     }
   };
 
-  // ==========================================
   // FETCH PATIENTS
-  // ==========================================
-
+  
   const fetchPatients = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -103,9 +99,7 @@ function PatientManagement() {
     fetchPatients();
   }, [fetchPatients]);
 
-  // ==========================================
   // RESET FORM
-  // ==========================================
 
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
@@ -113,9 +107,7 @@ function PatientManagement() {
     setShowForm(false);
   };
 
-  // ==========================================
   // HANDLE INPUT CHANGE
-  // ==========================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -126,9 +118,7 @@ function PatientManagement() {
     }));
   };
 
-  // ==========================================
   // ADD PATIENT
-  // ==========================================
 
   const handleAddClick = () => {
     setError("");
@@ -138,10 +128,9 @@ function PatientManagement() {
     setShowForm(true);
   };
 
-  // ==========================================
-  // EDIT PATIENT
-  // ==========================================
 
+  // EDIT PATIENT
+ 
   const handleEdit = (patient) => {
     if (patient.status === "Discharged") return;
 
@@ -166,9 +155,7 @@ function PatientManagement() {
     });
   };
 
-  // ==========================================
   // SAVE / UPDATE PATIENT
-  // ==========================================
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -252,9 +239,7 @@ function PatientManagement() {
     }
   };
 
-  // ==========================================
   // DISCHARGE PATIENT
-  // ==========================================
 
   const handleDischarge = async (patient) => {
     if (patient.status === "Discharged") return;
@@ -309,9 +294,7 @@ function PatientManagement() {
     }
   };
 
-  // ==========================================
   // DATE FORMATTER
-  // ==========================================
 
   const formatDate = (date) => {
     if (!date) return "â€”";
@@ -330,9 +313,7 @@ function PatientManagement() {
     });
   };
 
-  // ==========================================
   // SEARCH AND FILTER
-  // ==========================================
 
   const filteredPatients = patients.filter((patient) => {
     const query = search.trim().toLowerCase();
@@ -354,9 +335,7 @@ function PatientManagement() {
     return matchesSearch && matchesStatus;
   });
 
-  // ==========================================
   // STATISTICS
-  // ==========================================
 
   const activeCount = patients.filter(
     (patient) => patient.status !== "Discharged"
@@ -366,9 +345,7 @@ function PatientManagement() {
     (patient) => patient.status === "Discharged"
   ).length;
 
-  // ==========================================
   // UI
-  // ==========================================
 
   return (
     <main className="pm-page">
