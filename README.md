@@ -157,11 +157,14 @@ The platform combines voice-based handoff, AI-powered assistance, patient manage
 ```text
                     USERS
                       |
-       +--------------+--------------+
-       |              |              |
-   Super Admin   Hospital Manager   Nurse
-       |              |              |
-       +--------------+--------------+
+    +-----------------+-----------------+
+    |          |          |             |
+ Super Admin  Hospital   Nurse    Non-Staff Medical
+    |         Manager     |             |
+    |          |          |             |
+    |          |          |             |
+    |          |          |             |
+    +----------+----------+-------------+
                       |
                 React Frontend
                       |
